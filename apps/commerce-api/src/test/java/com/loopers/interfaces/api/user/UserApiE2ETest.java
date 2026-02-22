@@ -148,7 +148,7 @@ class UserApiE2ETest {
         }
 
         @Test
-        void 존재하지_않는_loginId면_404_NOT_FOUND를_반환한다() {
+        void 존재하지_않는_loginId면_401_UNAUTHORIZED를_반환한다() {
             // Arrange
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-LoginId", "nonexist12");
@@ -161,7 +161,7 @@ class UserApiE2ETest {
             );
 
             // Assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @Test

@@ -97,33 +97,13 @@ class UserServiceTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.getMyInfo("loopers123", "loopers123!@");
+                userService.getMyInfo("loopers123");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
-        void 비밀번호가_불일치하면_UNAUTHORIZED를_던진다() {
-            // Arrange
-            User user = User.create(
-                    LoginId.from("loopers123"),
-                    Password.of("loopers123!@", passwordEncoder),
-                    Name.from("루퍼스"),
-                    BirthDate.from(LocalDate.of(1996, 11, 22)),
-                    Email.from("test@loopers.im")
-            );
-            when(userRepository.findByLoginId(LoginId.from("loopers123"))).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("wrongPass123", user.password().asString())).thenReturn(false);
-
-            // Act & Assert
-            CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.getMyInfo("loopers123", "wrongPass123");
-            });
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-        }
-
-        @Test
-        void 정상_인증이면_UserInfo를_반환한다() {
+        void 정상_조회면_UserInfo를_반환한다() {
             // Arrange
             when(passwordEncoder.encode("loopers123!@")).thenReturn("encoded");
             User user = User.create(
@@ -134,10 +114,9 @@ class UserServiceTest {
                     Email.from("test@loopers.im")
             );
             when(userRepository.findByLoginId(LoginId.from("loopers123"))).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("loopers123!@", "encoded")).thenReturn(true);
 
             // Act
-            UserInfo result = userService.getMyInfo("loopers123", "loopers123!@");
+            UserInfo result = userService.getMyInfo("loopers123");
 
             // Assert
             assertThat(result.loginId()).isEqualTo("loopers123");
@@ -172,22 +151,9 @@ class UserServiceTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "loopers123!@", "newPass1234!");
+                userService.changePassword("loopers123", "newPass1234!");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-
-        @Test
-        void 기존_비밀번호가_불일치하면_UNAUTHORIZED를_던진다() {
-            // Arrange
-            when(userRepository.findByLoginId(LoginId.from("loopers123"))).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("wrongPass123", "encoded")).thenReturn(false);
-
-            // Act & Assert
-            CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "wrongPass123", "newPass1234!");
-            });
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
 
         @Test
@@ -198,7 +164,7 @@ class UserServiceTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "loopers123!@", "loopers123!@");
+                userService.changePassword("loopers123", "loopers123!@");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
@@ -207,11 +173,10 @@ class UserServiceTest {
         void 새_비밀번호에_생년월일이_포함되면_BAD_REQUEST를_던진다() {
             // Arrange
             when(userRepository.findByLoginId(LoginId.from("loopers123"))).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("loopers123!@", "encoded")).thenReturn(true);
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "loopers123!@", "ab19961122!");
+                userService.changePassword("loopers123", "ab19961122!");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
@@ -220,11 +185,10 @@ class UserServiceTest {
         void 정상_변경이면_비밀번호가_변경된다() {
             // Arrange
             when(userRepository.findByLoginId(LoginId.from("loopers123"))).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("loopers123!@", "encoded")).thenReturn(true);
             when(passwordEncoder.encode("newPass1234!")).thenReturn("newEncoded");
 
             // Act
-            userService.changePassword("loopers123", "loopers123!@", "newPass1234!");
+            userService.changePassword("loopers123", "newPass1234!");
 
             // Assert
             assertThat(user.password().asString()).isEqualTo("newEncoded");

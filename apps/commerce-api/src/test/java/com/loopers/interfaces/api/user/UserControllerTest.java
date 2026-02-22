@@ -71,7 +71,7 @@ class UserControllerTest {
         void 성공하면_200_OK와_유저정보를_반환한다() throws Exception {
             // Arrange
             UserInfo userInfo = new UserInfo("loopers123", "루퍼*", LocalDate.of(1996, 11, 22), "test@loopers.im");
-            when(userService.getMyInfo("loopers123", "loopers123!@")).thenReturn(userInfo);
+            when(userService.getMyInfo("loopers123")).thenReturn(userInfo);
 
             // Act & Assert
             mockMvc.perform(get("/api/users/me")
@@ -93,7 +93,7 @@ class UserControllerTest {
         void 성공하면_200_OK를_반환한다() throws Exception {
             // Arrange
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest("newPass1234!");
-            doNothing().when(userService).changePassword("loopers123", "loopers123!@", "newPass1234!");
+            doNothing().when(userService).changePassword("loopers123", "newPass1234!");
 
             String content = objectMapper.writeValueAsString(request);
 

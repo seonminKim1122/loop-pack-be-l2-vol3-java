@@ -38,14 +38,19 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserInfo getMyInfo(String loginId, String password) {
-        User user = authenticate(loginId, password);
+    public UserInfo getMyInfo(String loginId) {
+
+        User user = userRepository.findByLoginId(LoginId.from(loginId))
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
+
         return UserInfo.from(user);
     }
 
     @Transactional
-    public void changePassword(String loginId, String currentPassword, String newPassword) {
-        User user = authenticate(loginId, currentPassword);
+    public void changePassword(String loginId, String newPassword) {
+
+        User user = userRepository.findByLoginId(LoginId.from(loginId))
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
 
         if (user.password().matches(newPassword, passwordEncoder)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호는 사용할 수 없습니다.");
@@ -56,14 +61,15 @@ public class UserService {
         user.changePassword(Password.of(newPassword, passwordEncoder));
     }
 
-    private User authenticate(String loginId, String password) {
+    @Transactional(readOnly = true)
+    public User authenticate(String loginId, String password) {
         LoginId id = LoginId.from(loginId);
 
         User user = userRepository.findByLoginId(id)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원정보가 올바르지 않습니다."));
 
         if (!user.password().matches(password, passwordEncoder)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.");
+            throw new CoreException(ErrorType.UNAUTHORIZED, "회원정보가 올바르지 않습니다.");
         }
 
         return user;

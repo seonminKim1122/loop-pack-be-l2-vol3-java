@@ -9,6 +9,9 @@ dependencies {
     // security
     implementation("org.springframework.security:spring-security-crypto")
 
+    // aop
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")

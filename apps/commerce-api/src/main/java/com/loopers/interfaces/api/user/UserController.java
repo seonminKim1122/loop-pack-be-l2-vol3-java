@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.user;
 import com.loopers.domain.user.LoginId;
 import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.support.auth.LoginUser;
 import lombok.RequiredArgsConstructor;
 import com.loopers.domain.user.UserInfo;
 import org.springframework.http.HttpStatus;
@@ -31,20 +32,20 @@ public class UserController implements UserApiSpec {
         return ApiResponse.success(response);
     }
 
+    @LoginUser
     @GetMapping("/me")
     public ApiResponse<UserDto.MyInfoResponse> getMyInfo(
-            @RequestHeader("X-Loopers-LoginId") String loginId,
-            @RequestHeader("X-Loopers-LoginPw") String password) {
-        UserInfo userInfo = userService.getMyInfo(loginId, password);
+            @RequestHeader("X-Loopers-LoginId") String loginId) {
+        UserInfo userInfo = userService.getMyInfo(loginId);
         return ApiResponse.success(UserDto.MyInfoResponse.from(userInfo));
     }
 
+    @LoginUser
     @PatchMapping("/me/password")
     public ApiResponse<Object> changePassword(
             @RequestHeader("X-Loopers-LoginId") String loginId,
-            @RequestHeader("X-Loopers-LoginPw") String currentPassword,
             @RequestBody UserDto.ChangePasswordRequest request) {
-        userService.changePassword(loginId, currentPassword, request.newPassword());
+        userService.changePassword(loginId, request.newPassword());
         return ApiResponse.success();
     }
 }

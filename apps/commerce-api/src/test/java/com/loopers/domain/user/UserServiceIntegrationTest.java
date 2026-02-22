@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
@@ -73,12 +74,12 @@ class UserServiceIntegrationTest {
     class GetMyInfo {
 
         @Test
-        void 정상_인증이면_UserInfo를_반환한다() {
+        void 정상_조회면_UserInfo를_반환한다() {
             // Arrange
             userService.signup("loopers123", "loopers123!@", "루퍼스", LocalDate.of(1996, 11, 22), "test@loopers.im");
 
             // Act
-            UserInfo result = userService.getMyInfo("loopers123", "loopers123!@");
+            UserInfo result = userService.getMyInfo("loopers123");
 
             // Assert
             assertThat(result.loginId()).isEqualTo("loopers123");
@@ -91,21 +92,9 @@ class UserServiceIntegrationTest {
         void 존재하지_않는_loginId면_NOT_FOUND를_던진다() {
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.getMyInfo("nonexist12", "loopers123!@");
+                userService.getMyInfo("nonexist12");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-
-        @Test
-        void 비밀번호가_불일치하면_UNAUTHORIZED를_던진다() {
-            // Arrange
-            userService.signup("loopers123", "loopers123!@", "루퍼스", LocalDate.of(1996, 11, 22), "test@loopers.im");
-
-            // Act & Assert
-            CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.getMyInfo("loopers123", "wrongPass123!");
-            });
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
     }
 
@@ -121,36 +110,26 @@ class UserServiceIntegrationTest {
         @Test
         void 정상_변경이면_새_비밀번호로_인증할_수_있다() {
             // Act
-            userService.changePassword("loopers123", "loopers123!@", "newPass1234!");
+            userService.changePassword("loopers123", "newPass1234!");
 
-            // Assert - 새 비밀번호로 조회 성공
-            UserInfo result = userService.getMyInfo("loopers123", "newPass1234!");
-            assertThat(result.loginId()).isEqualTo("loopers123");
+            // Assert
+            assertDoesNotThrow(() -> userService.authenticate("loopers123", "newPass1234!"));
         }
 
         @Test
         void 존재하지_않는_loginId면_NOT_FOUND를_던진다() {
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("nonexist12", "loopers123!@", "newPass1234!");
+                userService.changePassword("nonexist12", "newPass1234!");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-
-        @Test
-        void 기존_비밀번호가_불일치하면_UNAUTHORIZED를_던진다() {
-            // Act & Assert
-            CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "wrongPass123!", "newPass1234!");
-            });
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
 
         @Test
         void 새_비밀번호가_기존과_동일하면_BAD_REQUEST를_던진다() {
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "loopers123!@", "loopers123!@");
+                userService.changePassword("loopers123", "loopers123!@");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
@@ -159,7 +138,7 @@ class UserServiceIntegrationTest {
         void 새_비밀번호에_생년월일이_포함되면_BAD_REQUEST를_던진다() {
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword("loopers123", "loopers123!@", "ab19961122!");
+                userService.changePassword("loopers123", "ab19961122!");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
