@@ -7,67 +7,69 @@
 
 ```mermaid
 erDiagram
-    USER {
+    USERS {
         bigint id PK
         varchar login_id UK
         varchar password
         varchar name
-        varchar birthday
-        varchar email
+        date birthday
         datetime created_at
         datetime updated_at
     }
-
+    
     BRAND {
+        bigint id PK
+        varchar name UK
+        varchar description
+        boolean is_deleted
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at
+    }
+    
+    PRODUCT {
         bigint id PK
         varchar name
         varchar description
-        boolean deleted
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
-    }
-
-    PRODUCT {
-        bigint id PK
-        bigint brand_id
-        varchar name 
+        bigint stock
         bigint price
-        varchar description
-        int stock
-        int like_count
-        boolean deleted
+        bigint brand_id
+        bigint like_count
+        boolean is_deleted
         datetime created_at
         datetime updated_at
         datetime deleted_at
     }
-
+    
+    LIKES {
+        bigint user_id PK
+        bigint product_id PK
+        datetime created_at
+        datetime updated_at
+    }
+    
     ORDERS {
         bigint id PK
         bigint user_id
         bigint total_price
-        datetime ordered_at
+        datetime created_at
+        datetime updated_at
     }
-
+    
     ORDER_ITEM {
         bigint id PK
         bigint order_id
         varchar product_name
         varchar brand_name
         bigint price
-        int quantity
-    }
-
-    LIKES {
-        bigint id PK
-        bigint user_id "unique index with product_id"
-        bigint product_id
+        bigint quantity
         datetime created_at
+        datetime updated_at
     }
 
-    USER ||--o{ ORDERS : "places"
-    USER ||--o{ LIKES : "likes"
-    BRAND ||--o{ PRODUCT : "contains"
+    USERS ||--o{ ORDERS : "places"
+    USERS ||--o{ LIKES : ""
     ORDERS ||--|{ ORDER_ITEM : "contains"
-    PRODUCT ||--o{ LIKES : "receives"
+    PRODUCT ||--o{ LIKES : ""
+    BRAND ||--o{ PRODUCT : "has"
 ```
