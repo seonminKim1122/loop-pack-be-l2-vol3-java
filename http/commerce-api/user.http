@@ -1,0 +1,11 @@
+### 회원가입
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testUser1",
+  "password": "test1234!",
+  "name": "홍길동",
+  "birthDate": "1990-01-01",
+  "email": "test@loopers.im"
+}

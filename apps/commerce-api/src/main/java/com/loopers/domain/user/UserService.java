@@ -1,0 +1,36 @@
+package com.loopers.domain.user;
+
+import com.loopers.domain.user.vo.BirthDate;
+import com.loopers.domain.user.vo.Email;
+import com.loopers.domain.user.vo.LoginId;
+import com.loopers.domain.user.vo.Name;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.Optional;
+
+@RequiredArgsConstructor
+@Component
+public class UserService {
+
+    private final PasswordEncoder passwordEncoder;
+    private final PasswordValidator passwordValidator;
+
+    public User signup(Optional<User> duplicateUser, String loginId, String password, String name, LocalDate birthDate, String email) {
+        if (duplicateUser.isPresent()) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 등록된 로그인ID 입니다.");
+        }
+
+        LoginId loginIdVo = LoginId.from(loginId);
+        BirthDate birthDateVo = BirthDate.from(birthDate);
+        passwordValidator.validate(password, birthDateVo);
+        String encodedPassword = passwordEncoder.encode(password);
+        Name nameVo = Name.from(name);
+        Email emailVo = Email.from(email);
+
+        return User.create(loginIdVo, encodedPassword, nameVo, birthDateVo, emailVo);
+    }
+}
