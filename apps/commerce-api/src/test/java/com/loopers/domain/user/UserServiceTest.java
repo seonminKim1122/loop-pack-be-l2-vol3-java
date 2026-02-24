@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -57,6 +58,52 @@ class UserServiceTest {
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+    }
+
+    @DisplayName("인증 시, ")
+    @Nested
+    class Authenticate {
+
+        @DisplayName("존재하지 않는 User 로 인증하면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenUserNotFound() {
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                userService.authenticate(Optional.empty(), "test1234!")
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenPasswordDoesNotMatch() {
+            // arrange
+            User user = mock(User.class);
+            when(user.password()).thenReturn("encodedPassword");
+            when(passwordEncoder.matches("wrongPassword", "encodedPassword")).thenReturn(false);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                userService.authenticate(Optional.of(user), "wrongPassword")
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("비밀번호가 일치하면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenPasswordMatches() {
+            // arrange
+            User user = mock(User.class);
+            when(user.password()).thenReturn("encodedPassword");
+            when(passwordEncoder.matches("test1234!", "encodedPassword")).thenReturn(true);
+
+            // act & assert
+            assertDoesNotThrow(() -> userService.authenticate(Optional.of(user), "test1234!"));
         }
     }
 }

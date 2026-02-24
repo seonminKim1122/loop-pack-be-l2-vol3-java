@@ -33,4 +33,13 @@ public class UserService {
 
         return User.create(loginIdVo, encodedPassword, nameVo, birthDateVo, emailVo);
     }
+
+    public void authenticate(Optional<User> foundUser, String rawPassword) {
+        User user = foundUser.orElseThrow(
+            () -> new CoreException(ErrorType.UNAUTHORIZED, "회원 정보가 올바르지 않습니다.")
+        );
+        if (!passwordEncoder.matches(rawPassword, user.password())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "회원 정보가 올바르지 않습니다.");
+        }
+    }
 }

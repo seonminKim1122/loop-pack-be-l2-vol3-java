@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -164,6 +165,71 @@ class UserApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/me")
+    @Nested
+    class GetMyInfo {
+
+        @DisplayName("인증 헤더 없이 요청 시, 401 응답을 반환한다.")
+        @Test
+        void returnsUnauthorized_whenHeadersMissing() {
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("잘못된 비밀번호로 요청 시, 401 응답을 반환한다.")
+        @Test
+        void returnsUnauthorized_whenPasswordIsWrong() {
+            // arrange
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(new UserDto.SignupRequest("testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im")),
+                Void.class);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testUser1");
+            headers.set("X-Loopers-LoginPw", "wrongPassword");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("유효한 인증으로 요청 시, 200 과 내 정보를 반환한다.")
+        @Test
+        void returnsMyInfo_whenCredentialsAreValid() {
+            // arrange
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(new UserDto.SignupRequest("testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im")),
+                Void.class);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testUser1");
+            headers.set("X-Loopers-LoginPw", "test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<UserDto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserDto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo("testUser1"),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
+                () -> assertThat(response.getBody().data().birthDate()).isEqualTo(LocalDate.of(1990, 1, 1)),
+                () -> assertThat(response.getBody().data().email()).isEqualTo("test@loopers.im")
+            );
         }
     }
 }
