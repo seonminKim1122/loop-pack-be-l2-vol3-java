@@ -43,23 +43,23 @@ public class User extends BaseEntity {
         return new User(loginId, encodedPassword, name, birthDate, email);
     }
 
-    public LoginId getLoginId() {
+    public LoginId loginId() {
         return loginId;
     }
 
-    public String getEncodedPassword() {
+    public String password() {
         return encodedPassword;
     }
 
-    public Name getName() {
+    public Name name() {
         return name;
     }
 
-    public BirthDate getBirthDate() {
+    public BirthDate birthDate() {
         return birthDate;
     }
 
-    public Email getEmail() {
+    public Email email() {
         return email;
     }
 }

@@ -34,11 +34,11 @@ class UserTest {
 
             // assert
             assertAll(
-                () -> assertThat(user.getLoginId()).isEqualTo(loginId),
-                () -> assertThat(user.getEncodedPassword()).isEqualTo(encodedPassword),
-                () -> assertThat(user.getName()).isEqualTo(name),
-                () -> assertThat(user.getBirthDate()).isEqualTo(birthDate),
-                () -> assertThat(user.getEmail()).isEqualTo(email)
+                () -> assertThat(user.loginId()).isEqualTo(loginId),
+                () -> assertThat(user.password()).isEqualTo(encodedPassword),
+                () -> assertThat(user.name()).isEqualTo(name),
+                () -> assertThat(user.birthDate()).isEqualTo(birthDate),
+                () -> assertThat(user.email()).isEqualTo(email)
             );
         }
     }
