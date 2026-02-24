@@ -42,4 +42,13 @@ public class UserService {
             throw new CoreException(ErrorType.UNAUTHORIZED, "회원 정보가 올바르지 않습니다.");
         }
     }
+
+    public void changePassword(User user, String newPassword) {
+        if (passwordEncoder.matches(newPassword, user.password())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.");
+        }
+        passwordValidator.validate(newPassword, user.birthDate());
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        user.changePassword(encodedNewPassword);
+    }
 }

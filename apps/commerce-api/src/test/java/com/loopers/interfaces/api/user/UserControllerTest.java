@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -97,6 +98,33 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.name").value("홍길*"))
                 .andExpect(jsonPath("$.data.birthDate").value("1990-01-01"))
                 .andExpect(jsonPath("$.data.email").value("test@loopers.im"));
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /api/v1/users/me/password")
+    class ChangePassword {
+
+        private static final String ENDPOINT = "/api/v1/users";
+
+        @DisplayName("인증 헤더 없이 요청 시, 401 응답을 반환한다.")
+        @Test
+        void returnsUnauthorized_whenHeadersMissing() throws Exception {
+            mockMvc.perform(put(ENDPOINT + "/me/password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"newPassword\":\"newPass1!\"}"))
+                .andExpect(status().isUnauthorized());
+        }
+
+        @DisplayName("유효한 인증으로 요청 시, 200 응답을 반환한다.")
+        @Test
+        void returnsOk_whenRequestIsValid() throws Exception {
+            mockMvc.perform(put(ENDPOINT + "/me/password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"newPassword\":\"newPass1!\"}")
+                    .header("X-Loopers-LoginId", "testUser1")
+                    .header("X-Loopers-LoginPw", "test1234!"))
+                .andExpect(status().isOk());
         }
     }
 }

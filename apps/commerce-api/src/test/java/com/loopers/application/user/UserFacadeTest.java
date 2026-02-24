@@ -7,6 +7,8 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.LoginId;
 import com.loopers.domain.user.vo.Name;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -84,6 +87,40 @@ class UserFacadeTest {
 
             // assert
             assertThat(result).isNotNull();
+        }
+    }
+
+    @DisplayName("비밀번호 수정 시, ")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("존재하지 않는 User 로 비밀번호 수정 시, NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsNotFoundException_whenUserNotFound() {
+            // arrange
+            when(userRepository.findByLoginId(any())).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                userFacade.changePassword("testUser1", "newPass1!")
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("유효한 요청이면, UserService 에 비밀번호 변경을 위임한다.")
+        @Test
+        void delegatesChangePassword_toUserService() {
+            // arrange
+            User user = mock(User.class);
+            when(userRepository.findByLoginId(any())).thenReturn(Optional.of(user));
+
+            // act
+            userFacade.changePassword("testUser1", "newPass1!");
+
+            // assert
+            verify(userService).changePassword(user, "newPass1!");
         }
     }
 

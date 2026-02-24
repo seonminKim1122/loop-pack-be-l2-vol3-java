@@ -36,4 +36,13 @@ public class UserController {
         UserInfo userInfo = userFacade.getMyInfo(authUser.loginId());
         return ApiResponse.success(UserDto.MyInfoResponse.from(userInfo));
     }
+
+    @LoginRequired
+    @PutMapping("/me/password")
+    public ApiResponse<Void> changePassword(
+            @CurrentUser AuthenticatedUser authUser,
+            @RequestBody UserDto.ChangePasswordRequest request) {
+        userFacade.changePassword(authUser.loginId(), request.newPassword());
+        return ApiResponse.success(null);
+    }
 }

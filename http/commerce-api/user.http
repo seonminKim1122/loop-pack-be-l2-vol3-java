@@ -14,3 +14,13 @@ Content-Type: application/json
 GET {{commerce-api}}/api/v1/users/me
 X-Loopers-LoginId: testUser1
 X-Loopers-LoginPw: test1234!
+
+### 비밀번호 수정
+PUT {{commerce-api}}/api/v1/users/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: test1234!
+
+{
+  "newPassword": "newPass1!"
+}

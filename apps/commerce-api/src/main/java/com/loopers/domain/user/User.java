@@ -62,4 +62,8 @@ public class User extends BaseEntity {
     public Email email() {
         return email;
     }
+
+    public void changePassword(String encodedPassword) {
+        this.encodedPassword = encodedPassword;
+    }
 }

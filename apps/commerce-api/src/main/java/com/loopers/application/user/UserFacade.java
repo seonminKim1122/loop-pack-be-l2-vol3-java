@@ -38,4 +38,11 @@ public class UserFacade {
             .map(UserInfo::from)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다."));
     }
+
+    @Transactional
+    public void changePassword(String loginId, String newPassword) {
+        User user = userRepository.findByLoginId(LoginId.from(loginId))
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다."));
+        userService.changePassword(user, newPassword);
+    }
 }

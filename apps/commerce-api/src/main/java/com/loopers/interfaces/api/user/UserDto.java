@@ -20,4 +20,6 @@ public class UserDto {
             );
         }
     }
+
+    public static record ChangePasswordRequest(String newPassword) {}
 }
