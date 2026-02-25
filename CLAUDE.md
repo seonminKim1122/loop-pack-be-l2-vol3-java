@@ -24,6 +24,7 @@
 - null-safety 하지 않게 코드 작성하지 말 것 (Java 의 경우, Optional 을 활용할 것)
 - println 코드 남기지 말 것
 - 당장 필요하지 않은 코드는 만들지 말 것
+- 테스크코드 작성 시 무분별한 any() 사용 금지
 
 ### 2. Recommendation
 - 실제 API 를 호출해 확인하는 E2E 테스트 코드 작성
