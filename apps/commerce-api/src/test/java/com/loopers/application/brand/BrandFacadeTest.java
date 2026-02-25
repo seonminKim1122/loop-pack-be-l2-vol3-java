@@ -1,11 +1,13 @@
 package com.loopers.application.brand;
 
-import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.brand.*;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -53,6 +55,70 @@ class BrandFacadeTest {
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+            assertThat(result.getCustomMessage()).isEqualTo("중복된 이름의 브랜드가 존재합니다.");
+        }
+    }
+
+    @DisplayName("브랜드 수정 시, ")
+    @Nested
+    class Update {
+
+        @DisplayName("존재하는 브랜드이고 중복 없는 이름이면, 브랜드를 수정한다.")
+        @Test
+        void updatesBrand_whenBrandExistsAndNameIsNotDuplicated() {
+            // arrange
+            Long brandId = 1L;
+            String name = "아디다스";
+            String description = "Impossible is Nothing";
+            Brand brand = mock(Brand.class);
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
+            when(brandRepository.existsByNameAndIdNot(name, brandId)).thenReturn(false);
+
+            // act
+            brandFacade.update(brandId, name, description);
+
+            // assert
+            verify(brand).update(name, description);
+        }
+
+        @DisplayName("존재하지 않는 brandId 이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsNotFoundException_whenBrandNotFound() {
+            // arrange
+            Long brandId = 999L;
+            String name = "아디다스";
+            String description = "Impossible is Nothing";
+            when(brandRepository.findById(brandId)).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                brandFacade.update(brandId, name, description)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 브랜드입니다.");
+        }
+
+        @DisplayName("다른 브랜드와 이름이 중복되면, CONFLICT 예외가 발생한다.")
+        @Test
+        void throwsConflictException_whenNameIsDuplicated() {
+            // arrange
+            Long brandId = 1L;
+            String name = "아디다스";
+            String description = "Impossible is Nothing";
+            Brand brand = mock(Brand.class);
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
+            when(brandRepository.existsByNameAndIdNot(name, brandId)).thenReturn(true);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                brandFacade.update(brandId, name, description)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+            assertThat(result.getCustomMessage()).isEqualTo("중복된 이름의 브랜드가 존재합니다.");
         }
     }
 }

@@ -19,7 +19,7 @@ public class Brand extends BaseEntity {
     private String description;
 
     @Column(name = "is_deleted")
-    boolean isDeleted;
+    private boolean isDeleted;
 
     private Brand(String name, String description) {
         this.name = name;
@@ -32,5 +32,14 @@ public class Brand extends BaseEntity {
         }
 
         return new Brand(name, description);
+    }
+
+    public void update(String name, String description) {
+        if (name == null || name.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "브랜드명은 필수 입력사항입니다.");
+        }
+
+        this.name = name;
+        this.description = description;
     }
 }

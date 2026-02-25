@@ -22,4 +22,16 @@ public class BrandFacade {
         Brand brand = Brand.of(name, description);
         brandRepository.save(brand);
     }
+
+    @Transactional
+    public void update(Long brandId, String name, String description) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다."));
+
+        if (brandRepository.existsByNameAndIdNot(name, brandId)) {
+            throw new CoreException(ErrorType.CONFLICT, "중복된 이름의 브랜드가 존재합니다.");
+        }
+
+        brand.update(name, description);
+    }
 }
