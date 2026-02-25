@@ -18,9 +18,6 @@ public class Brand extends BaseEntity {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "is_deleted")
-    private boolean isDeleted;
-
     private Brand(String name, String description) {
         this.name = name;
         this.description = description;
@@ -42,4 +39,13 @@ public class Brand extends BaseEntity {
         this.name = name;
         this.description = description;
     }
+
+    public String name() {
+        return name;
+    }
+
+    public String description() {
+        return description;
+    }
+
 }

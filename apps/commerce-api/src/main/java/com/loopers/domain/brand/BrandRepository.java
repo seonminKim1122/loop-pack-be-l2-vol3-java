@@ -1,5 +1,8 @@
 package com.loopers.domain.brand;
 
+import com.loopers.support.web.PageResponse;
+import org.springframework.data.domain.Pageable;
+
 import java.util.Optional;
 
 public interface BrandRepository {
@@ -11,4 +14,6 @@ public interface BrandRepository {
     Optional<Brand> findById(Long brandId);
 
     boolean existsByNameAndIdNot(String name, Long id);
+
+    PageResponse<Brand> findAll(Pageable pageable);
 }

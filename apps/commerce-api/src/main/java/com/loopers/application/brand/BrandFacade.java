@@ -4,7 +4,9 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.web.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ public class BrandFacade {
         }
         Brand brand = Brand.of(name, description);
         brandRepository.save(brand);
+
     }
 
     @Transactional
@@ -33,5 +36,19 @@ public class BrandFacade {
         }
 
         brand.update(name, description);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<BrandInfo> getList(Pageable pageable) {
+        PageResponse<Brand> brands = brandRepository.findAll(pageable);
+        return brands.map(BrandInfo::from);
+    }
+
+    @Transactional(readOnly = true)
+    public BrandInfo getDetail(Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다."));
+
+        return BrandInfo.from(brand);
     }
 }
