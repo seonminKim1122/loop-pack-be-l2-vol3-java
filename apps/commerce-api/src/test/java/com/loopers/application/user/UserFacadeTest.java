@@ -1,5 +1,7 @@
 package com.loopers.application.user;
 
+import com.loopers.domain.user.PasswordEncoder;
+import com.loopers.domain.user.PasswordValidator;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.domain.user.UserService;
@@ -25,45 +27,75 @@ class UserFacadeTest {
 
     UserRepository userRepository = mock(UserRepository.class);
     UserService userService = mock(UserService.class);
-    UserFacade userFacade = new UserFacade(userRepository, userService);
+    PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+    PasswordValidator passwordValidator = mock(PasswordValidator.class);
+    UserFacade userFacade = new UserFacade(userRepository, userService, passwordEncoder, passwordValidator);
 
-    @Test
-    @DisplayName("신규 loginId 로 회원가입 시, UserService 를 호출하고 저장")
-    void signup() {
-        // given
-        String loginId = "testUser1";
-        String password = "test1234!";
-        String name = "테스터";
-        LocalDate birthDate = LocalDate.of(1990, 1, 1);
-        String email = "test@loopers.im";
-        when(userRepository.findByLoginId(any())).thenReturn(Optional.empty());
+    @DisplayName("회원가입 시, ")
+    @Nested
+    class Signup {
 
-        // when
-        userFacade.signup(loginId, password, name, birthDate, email);
+        @DisplayName("신규 loginId 로 회원가입 시, User 를 생성하고 저장한다.")
+        @Test
+        void savesUser_whenLoginIdIsNew() {
+            // arrange
+            when(userRepository.findByLoginId(any())).thenReturn(Optional.empty());
+            when(passwordEncoder.encode(any())).thenReturn("encodedPassword");
 
-        // then
-        verify(userService).signup(Optional.empty(), loginId, password, name, birthDate, email);
-        verify(userRepository).save(any());
+            // act
+            userFacade.signup("testUser1", "test1234!", "테스터", LocalDate.of(1990, 1, 1), "test@loopers.im");
+
+            // assert
+            verify(userRepository).save(any());
+        }
+
+        @DisplayName("중복된 loginId 로 회원가입 시, CONFLICT 예외가 발생한다.")
+        @Test
+        void throwsConflictException_whenLoginIdIsDuplicated() {
+            // arrange
+            when(userRepository.findByLoginId(any())).thenReturn(Optional.of(mock(User.class)));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                userFacade.signup("testUser1", "test1234!", "테스터", LocalDate.of(1990, 1, 1), "test@loopers.im")
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
     }
 
     @DisplayName("인증 시, ")
     @Nested
     class Authenticate {
 
-        @DisplayName("UserRepository 로 User 를 조회하고, UserService 에 인증을 위임한다.")
+        @DisplayName("존재하지 않는 loginId 로 인증하면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenUserNotFound() {
+            // arrange
+            when(userRepository.findByLoginId(any())).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                userFacade.authenticate("testUser1", "test1234!")
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("User 를 조회하고, UserService 에 인증을 위임한다.")
         @Test
         void delegatesAuthentication_toUserService() {
             // arrange
-            String loginId = "testUser1";
-            String password = "test1234!";
-            Optional<User> foundUser = Optional.empty();
-            when(userRepository.findByLoginId(any())).thenReturn(foundUser);
+            User user = mock(User.class);
+            when(userRepository.findByLoginId(any())).thenReturn(Optional.of(user));
 
             // act
-            userFacade.authenticate(loginId, password);
+            userFacade.authenticate("testUser1", "test1234!");
 
             // assert
-            verify(userService).authenticate(foundUser, password);
+            verify(userService).authenticate(user, "test1234!");
         }
     }
 
@@ -109,7 +141,7 @@ class UserFacadeTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
-        @DisplayName("유효한 요청이면, UserService 에 비밀번호 변경을 위임한다.")
+        @DisplayName("User 를 조회하고, UserService 에 비밀번호 변경을 위임한다.")
         @Test
         void delegatesChangePassword_toUserService() {
             // arrange
@@ -123,5 +155,4 @@ class UserFacadeTest {
             verify(userService).changePassword(user, "newPass1!");
         }
     }
-
 }
