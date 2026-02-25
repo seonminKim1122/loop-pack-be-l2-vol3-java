@@ -21,6 +21,14 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (!(handler instanceof HandlerMethod method)) {
             return true;
         }
+        if (method.hasMethodAnnotation(AdminOnly.class)) {
+            String ldap = request.getHeader("X-Loopers-Ldap");
+            if (!"loopers.admin".equals(ldap)) {
+                throw new CoreException(ErrorType.FORBIDDEN);
+            }
+            return true;
+        }
+
         if (!method.hasMethodAnnotation(LoginRequired.class)) {
             return true;
         }
