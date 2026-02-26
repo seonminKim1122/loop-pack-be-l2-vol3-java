@@ -40,10 +40,11 @@ public class UserFacade {
         userRepository.save(User.create(loginIdVo, encodedPassword, Name.from(name), birthDateVo, Email.from(email)));
     }
 
-    public void authenticate(String loginId, String rawPassword) {
+    public Long authenticate(String loginId, String rawPassword) {
         User user = userRepository.findByLoginId(LoginId.from(loginId))
             .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원 정보가 올바르지 않습니다."));
         userService.authenticate(user, rawPassword);
+        return user.getId();
     }
 
     @Transactional(readOnly = true)

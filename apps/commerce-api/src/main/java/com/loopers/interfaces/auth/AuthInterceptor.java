@@ -40,8 +40,8 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
 
-        userFacade.authenticate(loginId, password);
-        request.setAttribute("authenticatedUser", new AuthenticatedUser(loginId));
+        Long userId = userFacade.authenticate(loginId, password);
+        request.setAttribute("authenticatedUser", new AuthenticatedUser(userId));
         return true;
     }
 }
