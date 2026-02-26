@@ -71,4 +71,15 @@ public class Product extends BaseEntity {
     public Long brand() {
         return brandId;
     }
+
+    public void update(String name, String description, Stock stock, Price price) {
+        if (name == null || name.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "상품명은 필수입니다.");
+        }
+
+        this.name = name;
+        this.description = description;
+        this.stock = stock;
+        this.price = price;
+    }
 }

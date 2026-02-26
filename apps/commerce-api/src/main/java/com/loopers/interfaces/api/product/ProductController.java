@@ -5,10 +5,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AdminOnly;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -23,4 +20,13 @@ public class ProductController {
         productFacade.register(request.name(), request.description(), request.stock(), request.price(), request.brandId());
         return ApiResponse.success(null);
     }
+
+    @AdminOnly
+    @PutMapping("/api-admin/v1/products/{productId}")
+    public ApiResponse<Void> update(@PathVariable Long productId,
+                                    @RequestBody ProductAdminDto.UpdateRequest request) {
+        productFacade.update(productId, request.name(), request.description(), request.stock(), request.price());
+        return ApiResponse.success(null);
+    }
+
 }

@@ -30,4 +30,14 @@ public class ProductFacade {
         Product product = Product.of(name, description, stockVo, priceVo, brand.getId());
         productRepository.save(product);
     }
+
+    @Transactional
+    public void update(Long productId, String name, String description, Integer stock, Integer price) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+
+        Stock stockVo = Stock.from(stock);
+        Price priceVo = Price.from(price);
+        product.update(name, description, stockVo, priceVo);
+    }
 }
