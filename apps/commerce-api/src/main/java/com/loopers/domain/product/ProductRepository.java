@@ -21,4 +21,6 @@ public interface ProductRepository {
     boolean existsById(Long id);
 
     List<Product> findAllByIdIn(List<Long> ids);
+
+    PageResponse<Product> findAllByBrandId(Long brandId, Pageable pageable);
 }
