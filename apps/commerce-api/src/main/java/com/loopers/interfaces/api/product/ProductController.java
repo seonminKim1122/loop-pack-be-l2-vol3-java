@@ -48,4 +48,11 @@ public class ProductController {
         ProductInfo productInfo  = productFacade.getDetail(productId);
         return ApiResponse.success(ProductAdminDto.DetailResponse.from(productInfo));
     }
+
+    @AdminOnly
+    @DeleteMapping("/api-admin/v1/products/{productId}")
+    public ApiResponse<Void> delete(@PathVariable Long productId) {
+        productFacade.delete(productId);
+        return ApiResponse.success(null);
+    }
 }

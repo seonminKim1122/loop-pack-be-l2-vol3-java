@@ -74,4 +74,9 @@ public class ProductFacade {
             return ProductInfo.of(product, brand.name());
         }
     }
+
+    @Transactional
+    public void delete(Long productId) {
+        productRepository.deleteById(productId);
+    }
 }
