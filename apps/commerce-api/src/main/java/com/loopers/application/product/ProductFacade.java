@@ -58,6 +58,20 @@ public class ProductFacade {
                 return ProductInfo.of(product, brand.name());
             }
         });
+    }
 
+    @Transactional(readOnly = true)
+    public ProductInfo getDetail(Long productId) {
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+        Optional<Brand> optionalBrand = brandRepository.findById(product.brand());
+
+        if (optionalBrand.isEmpty()) {
+            return ProductInfo.of(product, null);
+        } else {
+            Brand brand = optionalBrand.get();
+            return ProductInfo.of(product, brand.name());
+        }
     }
 }

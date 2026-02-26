@@ -124,6 +124,64 @@ class ProductFacadeTest {
         }
     }
 
+    @DisplayName("상품 상세 조회 시, ")
+    @Nested
+    class GetDetail {
+
+        @DisplayName("존재하는 상품이면, 브랜드명과 함께 상품 정보를 반환한다.")
+        @Test
+        void returnsProductInfo_whenProductExists() {
+            // arrange
+            Long productId = 1L;
+            Long brandId = 1L;
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
+            Brand brand = Brand.of("나이키", null);
+
+            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
+
+            // act
+            ProductInfo result = productFacade.getDetail(productId);
+
+            // assert
+            assertThat(result.name()).isEqualTo("나이키 에어맥스");
+            assertThat(result.brand()).isEqualTo("나이키");
+        }
+
+        @DisplayName("브랜드가 존재하지 않는 상품이면, 브랜드명이 null인 상품 정보를 반환한다.")
+        @Test
+        void returnsProductInfoWithNullBrand_whenBrandNotFound() {
+            // arrange
+            Long productId = 1L;
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 999L);
+
+            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+            when(brandRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // act
+            ProductInfo result = productFacade.getDetail(productId);
+
+            // assert
+            assertThat(result.brand()).isNull();
+        }
+
+        @DisplayName("존재하지 않는 상품이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenProductNotFound() {
+            // arrange
+            Long productId = 999L;
+            when(productRepository.findById(productId)).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                productFacade.getDetail(productId)
+            );
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
+        }
+    }
+
     @DisplayName("상품 수정 시, ")
     @Nested
     class Update {

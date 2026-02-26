@@ -18,4 +18,11 @@ public class ProductAdminDto {
             return new ListResponse(productInfo.name(), productInfo.stock(), productInfo.price(), productInfo.brand());
         }
     }
+
+    public static record DetailResponse(String name, String description, Integer stock, Integer price, String brand) {
+
+        public static DetailResponse from(ProductInfo productInfo) {
+            return new DetailResponse(productInfo.name(), productInfo.description(), productInfo.stock(), productInfo.price(), productInfo.brand());
+        }
+    }
 }

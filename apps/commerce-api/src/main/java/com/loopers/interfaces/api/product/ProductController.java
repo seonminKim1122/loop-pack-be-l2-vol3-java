@@ -41,4 +41,11 @@ public class ProductController {
         PageResponse<ProductAdminDto.ListResponse> result = list.map(ProductAdminDto.ListResponse::from);
         return ApiResponse.success(result);
     }
+
+    @AdminOnly
+    @GetMapping("/api-admin/v1/products/{productId}")
+    public ApiResponse<ProductAdminDto.DetailResponse> getDetail(@PathVariable Long productId) {
+        ProductInfo productInfo  = productFacade.getDetail(productId);
+        return ApiResponse.success(ProductAdminDto.DetailResponse.from(productInfo));
+    }
 }
