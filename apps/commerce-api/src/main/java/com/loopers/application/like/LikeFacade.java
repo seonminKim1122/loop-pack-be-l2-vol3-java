@@ -25,4 +25,8 @@ public class LikeFacade {
             likeRepository.save(Like.of(userId, productId));
         }
     }
+
+    public void unlike(Long userId, Long productId) {
+        likeRepository.deleteByUserIdAndProductId(userId, productId);
+    }
 }

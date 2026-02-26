@@ -6,6 +6,7 @@ import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
 import com.loopers.interfaces.auth.LoginRequired;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,4 +25,13 @@ public class LikeController {
         likeFacade.like(user.id(), productId);
         return ApiResponse.success(null);
     }
+
+    @LoginRequired
+    @DeleteMapping("/api/v1/products/{productId}/likes")
+    public ApiResponse<Void> unlike(@PathVariable Long productId,
+                                    @CurrentUser AuthenticatedUser user) {
+        likeFacade.unlike(user.id(), productId);
+        return ApiResponse.success(null);
+    }
+
 }

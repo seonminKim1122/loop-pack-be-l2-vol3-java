@@ -20,4 +20,9 @@ public class LikeRepositoryImpl implements LikeRepository {
     public boolean existsByUserIdAndProductId(Long userId, Long productId) {
         return jpaRepository.existsByUserIdAndProductId(userId, productId);
     }
+
+    @Override
+    public void deleteByUserIdAndProductId(Long userId, Long productId) {
+        jpaRepository.deleteByUserIdAndProductId(userId, productId);
+    }
 }
