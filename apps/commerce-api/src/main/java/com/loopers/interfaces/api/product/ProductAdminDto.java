@@ -19,10 +19,10 @@ public class ProductAdminDto {
         }
     }
 
-    public static record DetailResponse(String name, String description, Integer stock, Integer price, String brand) {
+    public static record DetailResponse(String name, String description, Integer stock, Integer price, String brand, long likeCount) {
 
         public static DetailResponse from(ProductInfo productInfo) {
-            return new DetailResponse(productInfo.name(), productInfo.description(), productInfo.stock(), productInfo.price(), productInfo.brand());
+            return new DetailResponse(productInfo.name(), productInfo.description(), productInfo.stock(), productInfo.price(), productInfo.brand(), productInfo.likeCount());
         }
     }
 }

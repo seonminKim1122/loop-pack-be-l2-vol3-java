@@ -7,6 +7,7 @@ import com.loopers.support.web.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,6 +26,14 @@ public class ProductController {
         PageRequest pageRequest = PageRequest.of(page, size);
         PageResponse<ProductInfo> productInfos = productFacade.getList(pageRequest, brandId, sort);
         PageResponse<ProductDto.ListResponse> response = productInfos.map(ProductDto.ListResponse::from);
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping("/api/v1/products/{productId}")
+    public ApiResponse<ProductDto.DetailResponse> getDetail(@PathVariable Long productId) {
+
+        ProductInfo productInfo = productFacade.getDetail(productId);
+        ProductDto.DetailResponse response = ProductDto.DetailResponse.from(productInfo);
         return ApiResponse.success(response);
     }
 }
