@@ -8,9 +8,13 @@ import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.web.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -39,5 +43,21 @@ public class ProductFacade {
         Stock stockVo = Stock.from(stock);
         Price priceVo = Price.from(price);
         product.update(name, description, stockVo, priceVo);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ProductInfo> getList(Pageable pageable) {
+        PageResponse<Product> products = productRepository.findAll(pageable);
+
+        return products.map(product -> {
+            Optional<Brand> optionalBrand = brandRepository.findById(product.brand());
+            if (optionalBrand.isEmpty()) {
+                return ProductInfo.of(product, null);
+            } else {
+                Brand brand = optionalBrand.get();
+                return ProductInfo.of(product, brand.name());
+            }
+        });
+
     }
 }

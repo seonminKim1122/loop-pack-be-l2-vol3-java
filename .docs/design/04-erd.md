@@ -21,10 +21,8 @@ erDiagram
         bigint id PK
         varchar name UK
         varchar description
-        boolean is_deleted
         datetime created_at
         datetime updated_at
-        datetime deleted_at
     }
     
     PRODUCT {
@@ -34,11 +32,8 @@ erDiagram
         bigint stock
         bigint price
         bigint brand_id
-        bigint like_count
-        boolean is_deleted
         datetime created_at
         datetime updated_at
-        datetime deleted_at
     }
     
     LIKES {

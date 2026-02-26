@@ -7,10 +7,13 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.support.error.CoreException;
+import com.loopers.support.web.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,6 +64,63 @@ class ProductFacadeTest {
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("이미 등록된 브랜드로만 상품을 등록할 수 있습니다.");
+        }
+    }
+
+    @DisplayName("상품 목록 조회 시, ")
+    @Nested
+    class GetList {
+
+        @DisplayName("브랜드가 존재하는 상품이면, 브랜드명과 함께 상품 정보를 반환한다.")
+        @Test
+        void returnsProductInfoWithBrandName_whenBrandExists() {
+            // arrange
+            Long brandId = 1L;
+            Brand brand = Brand.of("나이키", null);
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
+
+            PageRequest pageRequest = PageRequest.of(0, 20);
+            when(productRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(product), 0, 20, 1));
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
+
+            // act
+            PageResponse<ProductInfo> result = productFacade.getList(pageRequest);
+
+            // assert
+            assertThat(result.content()).hasSize(1);
+            assertThat(result.content().get(0).brand()).isEqualTo("나이키");
+        }
+
+        @DisplayName("브랜드가 존재하지 않는 상품이면, 브랜드명이 null인 상품 정보를 반환한다.")
+        @Test
+        void returnsProductInfoWithNullBrand_whenBrandNotFound() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 999L);
+
+            PageRequest pageRequest = PageRequest.of(0, 20);
+            when(productRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(product), 0, 20, 1));
+            when(brandRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // act
+            PageResponse<ProductInfo> result = productFacade.getList(pageRequest);
+
+            // assert
+            assertThat(result.content()).hasSize(1);
+            assertThat(result.content().get(0).brand()).isNull();
+        }
+
+        @DisplayName("등록된 상품이 없으면, 빈 목록을 반환한다.")
+        @Test
+        void returnsEmptyList_whenNoProducts() {
+            // arrange
+            PageRequest pageRequest = PageRequest.of(0, 20);
+            when(productRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(), 0, 20, 0));
+
+            // act
+            PageResponse<ProductInfo> result = productFacade.getList(pageRequest);
+
+            // assert
+            assertThat(result.content()).isEmpty();
         }
     }
 
