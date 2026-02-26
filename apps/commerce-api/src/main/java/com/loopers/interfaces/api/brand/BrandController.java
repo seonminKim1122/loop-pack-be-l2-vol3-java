@@ -50,4 +50,11 @@ public class BrandController {
         BrandAdminDto.DetailResponse response = BrandAdminDto.DetailResponse.from(brandInfo);
         return ApiResponse.success(response);
     }
+
+    @AdminOnly
+    @DeleteMapping("/api-admin/v1/brands/{brandId}")
+    public ApiResponse<Void> delete(@PathVariable Long brandId) {
+        brandFacade.delete(brandId);
+        return ApiResponse.success(null);
+    }
 }

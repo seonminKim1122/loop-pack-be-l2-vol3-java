@@ -2,6 +2,7 @@ package com.loopers.application.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.web.PageResponse;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class BrandFacade {
 
     private final BrandRepository brandRepository;
+    private final ProductRepository productRepository;
 
     @Transactional
     public void register(String name, String description) {
@@ -50,5 +52,11 @@ public class BrandFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다."));
 
         return BrandInfo.from(brand);
+    }
+
+    @Transactional
+    public void delete(Long brandId) {
+        productRepository.deleteAllByBrandId(brandId);
+        brandRepository.deleteById(brandId);
     }
 }

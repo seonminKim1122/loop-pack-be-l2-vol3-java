@@ -1,6 +1,7 @@
 package com.loopers.application.brand;
 
 import com.loopers.domain.brand.*;
+import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.web.PageResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +23,8 @@ import static org.mockito.Mockito.when;
 class BrandFacadeTest {
 
     BrandRepository brandRepository = mock(BrandRepository.class);
-    BrandFacade brandFacade = new BrandFacade(brandRepository);
+    ProductRepository productRepository = mock(ProductRepository.class);
+    BrandFacade brandFacade = new BrandFacade(brandRepository, productRepository);
 
     @DisplayName("브랜드 등록 시, ")
     @Nested
@@ -141,6 +143,25 @@ class BrandFacadeTest {
             // assert
             assertThat(result.content()).hasSize(1);
             assertThat(result.content().get(0).name()).isEqualTo("나이키");
+        }
+    }
+
+    @DisplayName("브랜드 삭제 시, ")
+    @Nested
+    class Delete {
+
+        @DisplayName("상품과 브랜드가 모두 삭제된다.")
+        @Test
+        void deletesProductsAndBrand() {
+            // arrange
+            Long brandId = 1L;
+
+            // act
+            brandFacade.delete(brandId);
+
+            // assert
+            verify(productRepository).deleteAllByBrandId(brandId);
+            verify(brandRepository).deleteById(brandId);
         }
     }
 

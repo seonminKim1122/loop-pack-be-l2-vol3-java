@@ -16,4 +16,6 @@ public interface BrandRepository {
     boolean existsByNameAndIdNot(String name, Long id);
 
     PageResponse<Brand> findAll(Pageable pageable);
+
+    void deleteById(Long id);
 }

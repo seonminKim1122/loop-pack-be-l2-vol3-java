@@ -39,4 +39,9 @@ public class BrandRepositoryImpl implements BrandRepository {
     public PageResponse<Brand> findAll(Pageable pageable) {
         return PageResponse.from(jpaRepository.findAll(pageable));
     }
+
+    @Override
+    public void deleteById(Long id) {
+        jpaRepository.deleteById(id);
+    }
 }

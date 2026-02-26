@@ -14,4 +14,6 @@ public interface ProductRepository {
     PageResponse<Product> findAll(Pageable pageable);
 
     void deleteById(Long id);
+
+    void deleteAllByBrandId(Long brandId);
 }
