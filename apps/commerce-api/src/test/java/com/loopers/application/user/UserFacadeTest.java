@@ -107,15 +107,17 @@ class UserFacadeTest {
         @Test
         void returnsUserInfo_whenUserExists() {
             // arrange
-            User user = mock(User.class);
-            when(userRepository.findByLoginId(any())).thenReturn(Optional.of(user));
-            when(user.loginId()).thenReturn(LoginId.from("testUser1"));
-            when(user.name()).thenReturn(Name.from("홍길동"));
-            when(user.birthDate()).thenReturn(BirthDate.from(LocalDate.of(1990, 1, 1)));
-            when(user.email()).thenReturn(Email.from("test@loopers.im"));
+            LoginId loginId = LoginId.from("testUser1");
+            String password = "1234124124";
+            Name name = Name.from("홍길동");
+            BirthDate birthDate = BirthDate.from(LocalDate.of(1990, 1, 1));
+            Email email = Email.from("test@loopers.im");
+            User user = User.create(loginId, password, name, birthDate, email);
+
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
             // act
-            UserInfo result = userFacade.getMyInfo("testUser1");
+            UserInfo result = userFacade.getMyInfo(1L);
 
             // assert
             assertThat(result).isNotNull();
@@ -130,11 +132,11 @@ class UserFacadeTest {
         @Test
         void throwsNotFoundException_whenUserNotFound() {
             // arrange
-            when(userRepository.findByLoginId(any())).thenReturn(Optional.empty());
+            when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                userFacade.changePassword("testUser1", "newPass1!")
+                userFacade.changePassword(1L, "newPass1!")
             );
 
             // assert
@@ -145,11 +147,16 @@ class UserFacadeTest {
         @Test
         void delegatesChangePassword_toUserService() {
             // arrange
-            User user = mock(User.class);
-            when(userRepository.findByLoginId(any())).thenReturn(Optional.of(user));
+            LoginId loginId = LoginId.from("testUser1");
+            String password = "1234124124";
+            Name name = Name.from("홍길동");
+            BirthDate birthDate = BirthDate.from(LocalDate.of(1990, 1, 1));
+            Email email = Email.from("test@loopers.im");
+            User user = User.create(loginId, password, name, birthDate, email);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
             // act
-            userFacade.changePassword("testUser1", "newPass1!");
+            userFacade.changePassword(1L, "newPass1!");
 
             // assert
             verify(userService).changePassword(user, "newPass1!");

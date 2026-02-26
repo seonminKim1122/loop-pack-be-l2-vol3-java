@@ -33,7 +33,7 @@ public class UserController {
     @LoginRequired
     @GetMapping("/me")
     public ApiResponse<UserDto.MyInfoResponse> getMyInfo(@CurrentUser AuthenticatedUser authUser) {
-        UserInfo userInfo = userFacade.getMyInfo(authUser.loginId());
+        UserInfo userInfo = userFacade.getMyInfo(authUser.id());
         return ApiResponse.success(UserDto.MyInfoResponse.from(userInfo));
     }
 
@@ -42,7 +42,7 @@ public class UserController {
     public ApiResponse<Void> changePassword(
             @CurrentUser AuthenticatedUser authUser,
             @RequestBody UserDto.ChangePasswordRequest request) {
-        userFacade.changePassword(authUser.loginId(), request.newPassword());
+        userFacade.changePassword(authUser.id(), request.newPassword());
         return ApiResponse.success(null);
     }
 }
