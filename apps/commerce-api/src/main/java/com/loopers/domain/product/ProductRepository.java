@@ -16,4 +16,6 @@ public interface ProductRepository {
     void deleteById(Long id);
 
     void deleteAllByBrandId(Long brandId);
+
+    boolean existsById(Long id);
 }

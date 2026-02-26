@@ -9,4 +9,8 @@ public interface UserRepository {
     Optional<User> findByLoginId(LoginId loginId);
 
     void save(User user);
+
+    boolean existsById(Long id);
+
+    Optional<User> findById(Long id);
 }
