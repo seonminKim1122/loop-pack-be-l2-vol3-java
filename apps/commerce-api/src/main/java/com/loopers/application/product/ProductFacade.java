@@ -1,0 +1,33 @@
+package com.loopers.application.product;
+
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.vo.Price;
+import com.loopers.domain.product.vo.Stock;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@RequiredArgsConstructor
+@Component
+public class ProductFacade {
+
+    private final BrandRepository brandRepository;
+    private final ProductRepository productRepository;
+
+    @Transactional
+    public void register(String name, String description, Integer stock, Integer price, Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.BAD_REQUEST, "이미 등록된 브랜드로만 상품을 등록할 수 있습니다."));
+
+        Stock stockVo = Stock.from(stock);
+        Price priceVo = Price.from(price);
+
+        Product product = Product.of(name, description, stockVo, priceVo, brand.getId());
+        productRepository.save(product);
+    }
+}
