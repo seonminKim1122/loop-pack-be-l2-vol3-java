@@ -3,6 +3,7 @@ package com.loopers.domain.brand;
 import com.loopers.support.web.PageResponse;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface BrandRepository {
@@ -18,4 +19,6 @@ public interface BrandRepository {
     PageResponse<Brand> findAll(Pageable pageable);
 
     void deleteById(Long id);
+
+    List<Brand> findAllByIdIn(List<Long> ids);
 }

@@ -39,4 +39,8 @@ public class Like extends BaseEntity {
 
         return new Like(userId, productId);
     }
+
+    public Long productId() {
+        return productId;
+    }
 }

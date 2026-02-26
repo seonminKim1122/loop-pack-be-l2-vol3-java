@@ -6,9 +6,13 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     @Modifying
     @Query("DELETE FROM Product p WHERE p.brandId = :brandId")
     void deleteAllByBrandId(@Param("brandId") Long brandId);
+
+    List<Product> findAllByIdIn(List<Long> ids);
 }

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -43,5 +44,10 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public boolean existsById(Long id) {
         return jpaRepository.existsById(id);
+    }
+
+    @Override
+    public List<Product> findAllByIdIn(List<Long> ids) {
+        return jpaRepository.findAllByIdIn(ids);
     }
 }

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -43,5 +44,10 @@ public class BrandRepositoryImpl implements BrandRepository {
     @Override
     public void deleteById(Long id) {
         jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public List<Brand> findAllByIdIn(List<Long> ids) {
+        return jpaRepository.findAllByIdIn(ids);
     }
 }

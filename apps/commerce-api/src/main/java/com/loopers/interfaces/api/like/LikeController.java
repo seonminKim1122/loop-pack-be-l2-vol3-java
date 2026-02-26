@@ -1,15 +1,15 @@
 package com.loopers.interfaces.api.like;
 
 import com.loopers.application.like.LikeFacade;
+import com.loopers.application.like.LikeProductInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
 import com.loopers.interfaces.auth.LoginRequired;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -34,4 +34,11 @@ public class LikeController {
         return ApiResponse.success(null);
     }
 
+    @LoginRequired
+    @GetMapping("/api/v1/users/likes")
+    public ApiResponse<List<LikeDto.LikeProductResponse>> getLikeList(@CurrentUser AuthenticatedUser user) {
+        List<LikeProductInfo> likeProductInfos = likeFacade.getLikeList(user.id());
+        List<LikeDto.LikeProductResponse> response = likeProductInfos.stream().map(LikeDto.LikeProductResponse::from).toList();
+        return ApiResponse.success(response);
+    }
 }
