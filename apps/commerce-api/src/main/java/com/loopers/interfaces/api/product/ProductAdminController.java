@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
-public class ProductController {
+public class ProductAdminController {
 
     private final ProductFacade productFacade;
 
