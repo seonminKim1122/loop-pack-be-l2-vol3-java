@@ -159,4 +159,30 @@ class ProductTest {
             assertThat(result.getCustomMessage()).isEqualTo("상품명은 필수입니다.");
         }
     }
+
+    @DisplayName("재고 확인 시, ")
+    @Nested
+    class HasEnoughStock {
+
+        @DisplayName("재고가 요청 수량 이상이면, true 를 반환한다.")
+        @Test
+        void returnsTrue_whenStockIsSufficient() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(5), Price.from(150000), 1L);
+
+            // act & assert
+            assertThat(product.hasEnoughStock(5)).isTrue();
+            assertThat(product.hasEnoughStock(3)).isTrue();
+        }
+
+        @DisplayName("재고가 요청 수량보다 적으면, false 를 반환한다.")
+        @Test
+        void returnsFalse_whenStockIsInsufficient() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(2), Price.from(150000), 1L);
+
+            // act & assert
+            assertThat(product.hasEnoughStock(3)).isFalse();
+        }
+    }
 }

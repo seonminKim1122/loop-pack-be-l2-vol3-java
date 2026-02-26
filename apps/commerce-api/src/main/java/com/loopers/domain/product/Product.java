@@ -82,4 +82,15 @@ public class Product extends BaseEntity {
         this.stock = stock;
         this.price = price;
     }
+
+    public boolean hasEnoughStock(int quantity) {
+        return this.stock.value() >= quantity;
+    }
+
+    public void decreaseStock(int quantity) {
+        if (this.stock.value() < quantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
+        }
+        this.stock = Stock.from(this.stock().value() - quantity);
+    }
 }

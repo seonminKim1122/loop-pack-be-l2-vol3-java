@@ -1,6 +1,8 @@
 package com.loopers.infrastructure.product;
 
 import com.loopers.domain.product.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,4 +17,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     void deleteAllByBrandId(@Param("brandId") Long brandId);
 
     List<Product> findAllByIdIn(List<Long> ids);
+
+    Page<Product> findAllByBrandId(Long brandId, Pageable pageable);
 }

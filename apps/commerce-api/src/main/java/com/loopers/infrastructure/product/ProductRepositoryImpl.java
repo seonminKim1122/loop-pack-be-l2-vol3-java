@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+
 @RequiredArgsConstructor
 @Component
 public class ProductRepositoryImpl implements ProductRepository {
@@ -49,5 +50,10 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<Product> findAllByIdIn(List<Long> ids) {
         return jpaRepository.findAllByIdIn(ids);
+    }
+
+    @Override
+    public PageResponse<Product> findAllByBrandId(Long brandId, Pageable pageable) {
+        return PageResponse.from(jpaRepository.findAllByBrandId(brandId, pageable));
     }
 }
