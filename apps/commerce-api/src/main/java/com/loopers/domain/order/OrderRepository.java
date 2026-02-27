@@ -1,6 +1,6 @@
 package com.loopers.domain.order;
 
-import org.springframework.data.domain.Page;
+import com.loopers.support.page.PageResponse;
 import org.springframework.data.domain.Pageable;
 
 import java.time.ZonedDateTime;
@@ -13,7 +13,7 @@ public interface OrderRepository {
 
     Optional<Order> findById(Long orderId);
 
-    Page<Order> findAll(Pageable pageable);
+    PageResponse<Order> findAll(Pageable pageable);
 
     List<Order> findAllByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startAt, ZonedDateTime endAt);
 }

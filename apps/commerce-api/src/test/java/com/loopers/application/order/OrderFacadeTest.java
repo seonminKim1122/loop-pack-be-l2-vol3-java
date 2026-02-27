@@ -17,7 +17,6 @@ import com.loopers.support.page.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.ZonedDateTime;
@@ -280,7 +279,7 @@ class OrderFacadeTest {
             when(order.itemCount()).thenReturn(1);
             when(order.userId()).thenReturn(userId);
 
-            when(orderRepository.findAll(pageRequest)).thenReturn(new PageImpl<>(List.of(order), pageRequest, 1));
+            when(orderRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(order), 0, 20, 1));
             when(userRepository.findAllByIdIn(Set.of(userId))).thenReturn(List.of(user));
 
             // act
