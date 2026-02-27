@@ -2,6 +2,7 @@ package com.loopers.application.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -11,12 +12,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Component
 public class BrandFacade {
 
     private final BrandRepository brandRepository;
     private final ProductRepository productRepository;
+    private final LikeRepository likeRepository;
 
     @Transactional
     public void register(String name, String description) {
@@ -56,6 +60,8 @@ public class BrandFacade {
 
     @Transactional
     public void delete(Long brandId) {
+        List<Long> productIds = productRepository.findAllIdsByBrandId(brandId);
+        likeRepository.deleteAllByProductIdIn(productIds);
         productRepository.deleteAllByBrandId(brandId);
         brandRepository.deleteById(brandId);
     }

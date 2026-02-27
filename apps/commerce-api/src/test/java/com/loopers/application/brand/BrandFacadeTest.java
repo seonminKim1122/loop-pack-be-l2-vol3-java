@@ -1,6 +1,7 @@
 package com.loopers.application.brand;
 
 import com.loopers.domain.brand.*;
+import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.page.PageResponse;
@@ -24,7 +25,8 @@ class BrandFacadeTest {
 
     BrandRepository brandRepository = mock(BrandRepository.class);
     ProductRepository productRepository = mock(ProductRepository.class);
-    BrandFacade brandFacade = new BrandFacade(brandRepository, productRepository);
+    LikeRepository likeRepository = mock(LikeRepository.class);
+    BrandFacade brandFacade = new BrandFacade(brandRepository, productRepository, likeRepository);
 
     @DisplayName("브랜드 등록 시, ")
     @Nested
@@ -150,16 +152,19 @@ class BrandFacadeTest {
     @Nested
     class Delete {
 
-        @DisplayName("상품과 브랜드가 모두 삭제된다.")
+        @DisplayName("좋아요, 상품, 브랜드가 순서대로 모두 삭제된다.")
         @Test
-        void deletesProductsAndBrand() {
+        void deletesLikesAndProductsAndBrand() {
             // arrange
             Long brandId = 1L;
+            List<Long> productIds = List.of(10L, 20L);
+            when(productRepository.findAllIdsByBrandId(brandId)).thenReturn(productIds);
 
             // act
             brandFacade.delete(brandId);
 
             // assert
+            verify(likeRepository).deleteAllByProductIdIn(productIds);
             verify(productRepository).deleteAllByBrandId(brandId);
             verify(brandRepository).deleteById(brandId);
         }

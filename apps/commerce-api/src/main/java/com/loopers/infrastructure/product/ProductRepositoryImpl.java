@@ -38,6 +38,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Long> findAllIdsByBrandId(Long brandId) {
+        return jpaRepository.findAllIdsByBrandId(brandId);
+    }
+
+    @Override
     public void deleteAllByBrandId(Long brandId) {
         jpaRepository.deleteAllByBrandId(brandId);
     }

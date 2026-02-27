@@ -12,6 +12,9 @@ import java.util.List;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
+    @Query("SELECT p.id FROM Product p WHERE p.brandId = :brandId")
+    List<Long> findAllIdsByBrandId(@Param("brandId") Long brandId);
+
     @Modifying
     @Query("DELETE FROM Product p WHERE p.brandId = :brandId")
     void deleteAllByBrandId(@Param("brandId") Long brandId);
