@@ -23,13 +23,13 @@ public class Order extends BaseEntity {
     private Long userId;
 
     @Column(name = "total_price")
-    private Integer totalPrice;
+    private Long totalPrice;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "order_id")
     private List<OrderItem> items;
 
-    private Order(Long userId, Integer totalPrice, List<OrderItem> items) {
+    private Order(Long userId, Long totalPrice, List<OrderItem> items) {
         this.userId = userId;
         this.totalPrice = totalPrice;
         this.items = items;
@@ -40,14 +40,14 @@ public class Order extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다.");
         }
 
-        int totalPrice = items.stream()
-                .mapToInt(item -> item.unitPrice() * item.quantity())
+        long totalPrice = items.stream()
+                .mapToLong(item -> (long) item.unitPrice() * item.quantity())
                 .sum();
 
         return new Order(userId, totalPrice, items);
     }
 
-    public Integer totalPrice() {
+    public Long totalPrice() {
         return totalPrice;
     }
 }
