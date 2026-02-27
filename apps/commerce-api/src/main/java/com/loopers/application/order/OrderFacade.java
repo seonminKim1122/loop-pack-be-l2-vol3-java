@@ -66,6 +66,18 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
+    public OrderDetail getDetail(Long userId, Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다."));
+
+        if (!order.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.FORBIDDEN, "접근 권한이 없습니다.");
+        }
+
+        return OrderDetail.from(order);
+    }
+
+    @Transactional(readOnly = true)
     public List<OrderSummary> getList(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
         List<Order> orders = orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt);
         return orders.stream().map(OrderSummary::from).toList();

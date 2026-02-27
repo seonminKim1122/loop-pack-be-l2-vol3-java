@@ -134,6 +134,69 @@ class OrderFacadeTest {
         }
     }
 
+    @DisplayName("단일 주문 상세 조회 시, ")
+    @Nested
+    class GetDetail {
+
+        @DisplayName("본인 주문이면, 주문 상세를 반환한다.")
+        @Test
+        void returnsOrderDetail_whenOwner() {
+            // arrange
+            Long userId = 1L;
+            Long orderId = 10L;
+
+            Order order = mock(Order.class);
+            when(order.getId()).thenReturn(orderId);
+            when(order.isOwnedBy(userId)).thenReturn(true);
+
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+            // act
+            OrderDetail result = orderFacade.getDetail(userId, orderId);
+
+            // assert
+            assertThat(result).isNotNull();
+            assertThat(result.orderId()).isEqualTo(orderId);
+        }
+
+        @DisplayName("존재하지 않는 주문이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenOrderNotFound() {
+            // arrange
+            Long userId = 1L;
+            Long orderId = 999L;
+
+            when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> orderFacade.getDetail(userId, orderId));
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 주문입니다.");
+        }
+
+        @DisplayName("다른 사용자의 주문이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenNotOwner() {
+            // arrange
+            Long userId = 1L;
+            Long orderId = 10L;
+
+            Order order = mock(Order.class);
+            when(order.isOwnedBy(userId)).thenReturn(false);
+
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> orderFacade.getDetail(userId, orderId));
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("접근 권한이 없습니다.");
+        }
+    }
+
     @DisplayName("주문 목록 조회 시, ")
     @Nested
     class GetList {

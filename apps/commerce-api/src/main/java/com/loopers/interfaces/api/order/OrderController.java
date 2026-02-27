@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderCommand;
+import com.loopers.application.order.OrderDetail;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderSummary;
 import com.loopers.interfaces.api.ApiResponse;
@@ -15,7 +16,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -52,5 +52,13 @@ public class OrderController {
                 ZonedDateTime.of(endAt, LocalTime.of(23, 59, 59), ZoneId.systemDefault()));
         List<OrderDto.SummaryResponse> summaryList = orderSummaryList.stream().map(OrderDto.SummaryResponse::from).toList();
         return ApiResponse.success(summaryList);
+    }
+
+    @LoginRequired
+    @GetMapping("/api/v1/orders/{orderId}")
+    public ApiResponse<OrderDto.DetailResponse> getDetail(@CurrentUser AuthenticatedUser user,
+                                                          @PathVariable Long orderId) {
+        OrderDetail orderDetail = orderFacade.getDetail(user.id(), orderId);
+        return ApiResponse.success(OrderDto.DetailResponse.from(orderDetail));
     }
 }

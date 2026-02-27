@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -17,6 +18,11 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public Long save(Order order) {
         return jpaRepository.save(order).getId();
+    }
+
+    @Override
+    public Optional<Order> findById(Long orderId) {
+        return jpaRepository.findById(orderId);
     }
 
     @Override

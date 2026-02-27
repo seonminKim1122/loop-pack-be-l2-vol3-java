@@ -55,4 +55,8 @@ public class OrderItem extends BaseEntity {
     public String productName() {
         return productName;
     }
+
+    public String brandName() {
+        return brandName;
+    }
 }
