@@ -16,9 +16,9 @@ public class LikeAssembler {
 
         return products.stream()
                 .map(product -> {
-                    Brand brand = brandMap.get(product.getId());
+                    Brand brand = brandMap.get(product.brandId());
                     long count = likeCounts.get(product.getId());
-                    return LikeProductInfo.of(product, brand != null ? brand.name() : null, count);
+                    return LikeProductInfo.of(product, brand.name(), count);
                 }).toList();
     }
 }

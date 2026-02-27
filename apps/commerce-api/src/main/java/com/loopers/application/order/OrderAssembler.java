@@ -18,7 +18,7 @@ public class OrderAssembler {
                 .map(item -> {
                     Product product = productMap.get(item.productId());
                     Brand brand = brandMap.get(product.brandId());
-                    return OrderItem.of(product.getId(), product.name(), brand != null ? brand.name() : null, product.price().value(), item.quantity());
+                    return OrderItem.of(product.getId(), product.name(), brand.name(), product.price().value(), item.quantity());
                 })
                 .toList();
     }

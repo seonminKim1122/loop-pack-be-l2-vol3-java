@@ -19,7 +19,7 @@ public class ProductAssembler {
                 .map(product -> {
                     Brand brand = brandMap.get(product.brandId());
                     long count = likeCounts.get(product.getId());
-                    return ProductInfo.of(product, brand != null ? brand.name() : null, count);
+                    return ProductInfo.of(product, brand.name(), count);
                 }).toList();
     }
 }
