@@ -11,6 +11,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ public class LikeFacade {
     private final BrandRepository brandRepository;
     private final LikeAssembler likeAssembler;
 
+    @Transactional
     public void like(Long userId, Long productId) {
         if (!userRepository.existsById(userId)) throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다.");
         if (!productRepository.existsById(productId)) throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.");
@@ -34,10 +36,12 @@ public class LikeFacade {
         }
     }
 
+    @Transactional
     public void unlike(Long userId, Long productId) {
         likeRepository.deleteByUserIdAndProductId(userId, productId);
     }
 
+    @Transactional(readOnly = true)
     public List<LikeProductInfo> getLikeList(Long userId) {
         List<Like> likes = likeRepository.findAllByUserId(userId);
         if (likes.isEmpty()) return List.of();
