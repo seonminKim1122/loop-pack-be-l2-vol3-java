@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,20 +47,12 @@ public class OrderFacade {
         Map<Long, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        List<OrderLine> orderLines = orderCommand.items().stream().map(item -> new OrderLine(item.productId(), item.quantity())).toList();
-        List<StockPolicy.Shortage> shortages = stockPolicy.findShortages(productMap, orderLines);
-
-        if (!shortages.isEmpty()) {
-            String detail = shortages.stream()
-                    .map(shortage -> "상품: %s, 요청: %d, 재고: %d".formatted(shortage.productName(), shortage.requested(), shortage.stock()))
-                    .collect(Collectors.joining("\n"));
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고 부족:\n" + detail);
-        }
-
-
         List<Long> brandIds = products.stream().map(Product::brandId).toList();
         Map<Long, Brand> brandMap = brandRepository.findAllByIdIn(brandIds).stream()
                 .collect(Collectors.toMap(Brand::getId, b -> b));
+
+        List<OrderLine> orderLines = orderCommand.items().stream().map(item -> new OrderLine(item.productId(), item.quantity())).toList();
+        stockPolicy.validate(productMap, orderLines);
 
         // 재고 차감
         orderCommand.items().forEach(item ->
@@ -71,5 +63,11 @@ public class OrderFacade {
 
         Order order = Order.of(user.getId(), orderItems);
         return orderRepository.save(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderSummary> getList(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
+        List<Order> orders = orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt);
+        return orders.stream().map(OrderSummary::from).toList();
     }
 }
