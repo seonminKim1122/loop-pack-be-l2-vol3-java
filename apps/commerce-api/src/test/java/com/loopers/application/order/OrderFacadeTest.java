@@ -202,6 +202,59 @@ class OrderFacadeTest {
         }
     }
 
+    @DisplayName("관리자 단일 주문 상세 조회 시, ")
+    @Nested
+    class GetAdminDetail {
+
+        @DisplayName("존재하는 주문이면, 주문자 정보를 포함한 주문 상세를 반환한다.")
+        @Test
+        void returnsAdminOrderDetail_whenOrderExists() {
+            // arrange
+            Long userId = 1L;
+            Long orderId = 10L;
+
+            Name name = mock(Name.class);
+            when(name.value()).thenReturn("홍길동");
+
+            User user = mock(User.class);
+            when(user.getId()).thenReturn(userId);
+            when(user.name()).thenReturn(name);
+
+            Order order = mock(Order.class);
+            when(order.getId()).thenReturn(orderId);
+            when(order.totalPrice()).thenReturn(150000L);
+            when(order.items()).thenReturn(List.of());
+            when(order.userId()).thenReturn(userId);
+
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+            // act
+            OrderAdminDetail result = orderFacade.getAdminDetail(orderId);
+
+            // assert
+            assertThat(result.orderId()).isEqualTo(orderId);
+            assertThat(result.totalPrice()).isEqualTo(150000L);
+            assertThat(result.userId()).isEqualTo(userId);
+            assertThat(result.userName()).isEqualTo("홍길동");
+        }
+
+        @DisplayName("존재하지 않는 주문이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenOrderNotFound() {
+            // arrange
+            Long orderId = 999L;
+            when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> orderFacade.getAdminDetail(orderId));
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 주문입니다.");
+        }
+    }
+
     @DisplayName("관리자 주문 목록 조회 시, ")
     @Nested
     class GetAdminList {

@@ -81,6 +81,17 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
+    public OrderAdminDetail getAdminDetail(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다."));
+
+        User user = userRepository.findById(order.userId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
+
+        return OrderAdminDetail.of(order, user);
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<OrderAdminSummary> findAllOrders(PageRequest pageRequest) {
         Page<Order> orderPage = orderRepository.findAll(pageRequest);
 
