@@ -39,6 +39,12 @@ public class Order extends BaseEntity {
         if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다.");
         }
+        if (items == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 필수입니다.");
+        }
+        if (items.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");
+        }
 
         long totalPrice = items.stream()
                 .mapToLong(item -> (long) item.unitPrice() * item.quantity())
@@ -53,5 +59,13 @@ public class Order extends BaseEntity {
 
     public int itemCount() {
         return items.size();
+    }
+
+    public List<OrderItem> items() {
+        return List.copyOf(items);
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        return this.userId.equals(userId);
     }
 }

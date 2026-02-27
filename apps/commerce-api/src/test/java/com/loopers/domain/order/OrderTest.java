@@ -49,5 +49,35 @@ class OrderTest {
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("사용자 ID는 필수입니다.");
         }
+
+        @DisplayName("items 가 null 이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenItemsIsNull() {
+            // arrange
+            Long userId = 1L;
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                Order.of(userId, null)
+            );
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("주문 항목은 필수입니다.");
+        }
+
+        @DisplayName("items 가 비어있으면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenItemsIsEmpty() {
+            // arrange
+            Long userId = 1L;
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                Order.of(userId, List.of())
+            );
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("주문 항목이 비어있습니다.");
+        }
     }
 }
