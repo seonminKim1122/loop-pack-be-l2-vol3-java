@@ -194,4 +194,23 @@ class ProductFacadeTest {
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
         }
     }
+
+    @DisplayName("상품 삭제 시, ")
+    @Nested
+    class Delete {
+
+        @DisplayName("좋아요와 상품이 함께 삭제된다.")
+        @Test
+        void deletesLikesAndProduct() {
+            // arrange
+            Long productId = 1L;
+
+            // act
+            productFacade.delete(productId);
+
+            // assert
+            verify(likeRepository).deleteAllByProductId(productId);
+            verify(productRepository).deleteById(productId);
+        }
+    }
 }

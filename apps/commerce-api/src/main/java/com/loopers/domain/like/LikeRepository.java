@@ -11,6 +11,8 @@ public interface LikeRepository {
 
     void deleteByUserIdAndProductId(Long userId, Long productId);
 
+    void deleteAllByProductId(Long productId);
+
     void deleteAllByProductIdIn(List<Long> productIds);
 
     List<Like> findAllByUserId(Long userId);
