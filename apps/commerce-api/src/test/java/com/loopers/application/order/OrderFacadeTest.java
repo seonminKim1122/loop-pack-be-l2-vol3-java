@@ -2,6 +2,8 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.StockPolicy;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.vo.Price;
@@ -27,8 +29,11 @@ class OrderFacadeTest {
     UserRepository userRepository = mock(UserRepository.class);
     ProductRepository productRepository = mock(ProductRepository.class);
     BrandRepository brandRepository = mock(BrandRepository.class);
-    com.loopers.domain.order.OrderRepository orderRepository = mock(com.loopers.domain.order.OrderRepository.class);
-    OrderFacade orderFacade = new OrderFacade(userRepository, productRepository, brandRepository, orderRepository);
+    OrderRepository orderRepository = mock(OrderRepository.class);
+    StockPolicy stockPolicy = new StockPolicy();
+    OrderAssembler orderAssembler = new OrderAssembler();
+
+    OrderFacade orderFacade = new OrderFacade(userRepository, productRepository, brandRepository, orderRepository, stockPolicy, orderAssembler);
 
     @DisplayName("주문 생성 시, ")
     @Nested
@@ -123,8 +128,7 @@ class OrderFacadeTest {
             );
 
             // assert
-            assertThat(result.getCustomMessage()).contains("재고가 부족한 상품이 포함되어 있습니다");
-            assertThat(result.getCustomMessage()).contains("나이키 에어맥스");
+            assertThat(result.getCustomMessage()).contains("재고 부족:\n상품: 나이키 에어맥스, 요청: 5, 재고: 2");
         }
     }
 }
