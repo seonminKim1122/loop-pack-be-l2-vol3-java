@@ -106,6 +106,25 @@ class LikeFacadeTest {
         }
     }
 
+    @DisplayName("좋아요 취소 시, ")
+    @Nested
+    class UnlikeTest {
+
+        @DisplayName("좋아요 취소를 요청하면, 해당 좋아요가 삭제된다.")
+        @Test
+        void deletesLike_whenUnlikeRequested() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 1L;
+
+            // act
+            likeFacade.unlike(userId, productId);
+
+            // assert
+            verify(likeRepository).deleteByUserIdAndProductId(userId, productId);
+        }
+    }
+
     @DisplayName("내가 좋아요한 상품 목록 조회 시, ")
     @Nested
     class GetLikeList {
