@@ -77,7 +77,7 @@ public class ProductFacade {
         if (brandId == null) {
             products = productRepository.findAll(pageRequest);
         } else {
-            products = productRepository.findAllByBrandId(brandId, pageable);
+            products = productRepository.findAllByBrandId(brandId, pageRequest);
         }
 
         List<Product> productList = products.content();
