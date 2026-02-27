@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.StockPolicy;
 import com.loopers.domain.product.Product;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -129,6 +131,38 @@ class OrderFacadeTest {
 
             // assert
             assertThat(result.getCustomMessage()).contains("재고 부족:\n상품: 나이키 에어맥스, 요청: 5, 재고: 2");
+        }
+    }
+
+    @DisplayName("주문 목록 조회 시, ")
+    @Nested
+    class GetList {
+
+        @DisplayName("유효한 기간이면, 주문 요약 목록을 반환한다.")
+        @Test
+        void returnsOrderSummaryList_whenValidPeriod() {
+            // arrange
+            Long userId = 1L;
+            ZonedDateTime startAt = ZonedDateTime.now().minusDays(7);
+            ZonedDateTime endAt = ZonedDateTime.now();
+
+            Order order = mock(Order.class);
+            when(order.getId()).thenReturn(1L);
+            when(order.getCreatedAt()).thenReturn(ZonedDateTime.now());
+            when(order.totalPrice()).thenReturn(150000L);
+            when(order.itemCount()).thenReturn(2);
+
+            when(orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt))
+                    .thenReturn(List.of(order));
+
+            // act
+            List<OrderSummary> result = orderFacade.getList(userId, startAt, endAt);
+
+            // assert
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).orderId()).isEqualTo(1L);
+            assertThat(result.get(0).totalPrice()).isEqualTo(150000L);
+            assertThat(result.get(0).itemCount()).isEqualTo(2);
         }
     }
 }

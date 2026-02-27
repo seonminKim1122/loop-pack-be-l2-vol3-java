@@ -50,4 +50,8 @@ public class Order extends BaseEntity {
     public Long totalPrice() {
         return totalPrice;
     }
+
+    public int itemCount() {
+        return items.size();
+    }
 }
