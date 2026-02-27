@@ -4,7 +4,7 @@ import com.loopers.application.brand.BrandFacade;
 import com.loopers.application.brand.BrandInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AdminOnly;
-import com.loopers.support.web.PageResponse;
+import com.loopers.support.page.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;

@@ -11,14 +11,19 @@ import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
+import com.loopers.domain.user.vo.Name;
 import com.loopers.support.error.CoreException;
+import com.loopers.support.page.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -194,6 +199,46 @@ class OrderFacadeTest {
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("접근 권한이 없습니다.");
+        }
+    }
+
+    @DisplayName("관리자 주문 목록 조회 시, ")
+    @Nested
+    class GetAdminList {
+
+        @DisplayName("유효한 페이지 요청이면, 주문자 정보를 포함한 주문 목록을 반환한다.")
+        @Test
+        void returnsAdminOrderSummaryList_whenValidPageRequest() {
+            // arrange
+            Long userId = 1L;
+            PageRequest pageRequest = PageRequest.of(0, 20);
+
+            Name name = mock(Name.class);
+            when(name.value()).thenReturn("홍길동");
+
+            User user = mock(User.class);
+            when(user.getId()).thenReturn(userId);
+            when(user.name()).thenReturn(name);
+
+            Order order = mock(Order.class);
+            when(order.getId()).thenReturn(1L);
+            when(order.getCreatedAt()).thenReturn(ZonedDateTime.now());
+            when(order.totalPrice()).thenReturn(150000L);
+            when(order.itemCount()).thenReturn(1);
+            when(order.userId()).thenReturn(userId);
+
+            when(orderRepository.findAll(pageRequest)).thenReturn(new PageImpl<>(List.of(order), pageRequest, 1));
+            when(userRepository.findAllByIdIn(Set.of(userId))).thenReturn(List.of(user));
+
+            // act
+            PageResponse<OrderAdminSummary> result = orderFacade.findAllOrders(pageRequest);
+
+            // assert
+            assertThat(result.content()).hasSize(1);
+            assertThat(result.content().get(0).orderId()).isEqualTo(1L);
+            assertThat(result.content().get(0).totalPrice()).isEqualTo(150000L);
+            assertThat(result.content().get(0).userId()).isEqualTo(userId);
+            assertThat(result.content().get(0).userName()).isEqualTo("홍길동");
         }
     }
 

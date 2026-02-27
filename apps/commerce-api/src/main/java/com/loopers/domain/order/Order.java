@@ -65,6 +65,10 @@ public class Order extends BaseEntity {
         return List.copyOf(items);
     }
 
+    public Long userId() {
+        return userId;
+    }
+
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
     }

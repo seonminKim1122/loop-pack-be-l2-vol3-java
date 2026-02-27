@@ -1,6 +1,6 @@
 package com.loopers.domain.brand;
 
-import com.loopers.support.web.PageResponse;
+import com.loopers.support.page.PageResponse;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;

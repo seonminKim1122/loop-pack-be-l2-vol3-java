@@ -1,4 +1,4 @@
-package com.loopers.support.web;
+package com.loopers.support.page;
 
 import org.springframework.data.domain.Page;
 

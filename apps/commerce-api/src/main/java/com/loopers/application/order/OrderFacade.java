@@ -9,7 +9,10 @@ import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,6 +78,17 @@ public class OrderFacade {
         }
 
         return OrderDetail.from(order);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<OrderAdminSummary> findAllOrders(PageRequest pageRequest) {
+        Page<Order> orderPage = orderRepository.findAll(pageRequest);
+
+        Set<Long> userIds = orderPage.getContent().stream().map(Order::userId).collect(Collectors.toSet());
+        Map<Long, User> userMap = userRepository.findAllByIdIn(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        return PageResponse.from(orderPage.map(order -> OrderAdminSummary.of(order, userMap.get(order.userId()))));
     }
 
     @Transactional(readOnly = true)

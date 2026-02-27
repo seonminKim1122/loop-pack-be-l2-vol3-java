@@ -3,7 +3,7 @@ package com.loopers.application.brand;
 import com.loopers.domain.brand.*;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
-import com.loopers.support.web.PageResponse;
+import com.loopers.support.page.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
