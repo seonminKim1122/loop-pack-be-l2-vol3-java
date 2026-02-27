@@ -30,6 +30,7 @@ public class ProductFacade {
     private final BrandRepository brandRepository;
     private final ProductRepository productRepository;
     private final LikeRepository likeRepository;
+    private final ProductAssembler productAssembler;
 
     @Transactional
     public void register(String name, String description, Integer stock, Integer price, Long brandId) {
@@ -59,21 +60,14 @@ public class ProductFacade {
         List<Product> productList = products.content();
         if (productList.isEmpty()) return new PageResponse<>(List.of(), products.page(), products.size(), products.totalPages());
 
-        List<Long> brandIds = productList.stream().map(Product::brand).toList();
+        List<Long> brandIds = productList.stream().map(Product::brandId).toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
-        Map<Long, Brand> brandMap = brands.stream().collect(Collectors.toMap(Brand::getId, b -> b));
 
         List<Long> productIds = productList.stream().map(Product::getId).toList();
         Map<Long, Long> likeCounts = likeRepository.countsByProductIdIn(productIds);
 
-        List<ProductInfo> productInfos = productList.stream()
-                .map(product -> {
-                    Brand brand = brandMap.get(product.brand());
-                    long count = likeCounts.getOrDefault(product.getId(), 0L);
-                    return ProductInfo.of(product, brand != null ? brand.name() : null, count);
-                })
-                .toList();
 
+        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands, likeCounts);
         return new PageResponse<>(productInfos, products.page(), products.size(), products.totalPages());
     }
 
@@ -91,20 +85,13 @@ public class ProductFacade {
         List<Product> productList = products.content();
         if (productList.isEmpty()) return new PageResponse<>(List.of(), products.page(), products.size(), products.totalPages());
 
-        List<Long> brandIds = productList.stream().map(Product::brand).toList();
+        List<Long> brandIds = productList.stream().map(Product::brandId).toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
-        Map<Long, Brand> brandMap = brands.stream().collect(Collectors.toMap(Brand::getId, b -> b));
 
         List<Long> productIds = productList.stream().map(Product::getId).toList();
         Map<Long, Long> likeCounts = likeRepository.countsByProductIdIn(productIds);
 
-        List<ProductInfo> productInfos = productList.stream()
-                .map(product -> {
-                    Brand brand = brandMap.get(product.brand());
-                    long count = likeCounts.getOrDefault(product.getId(), 0L);
-                    return ProductInfo.of(product, brand != null ? brand.name() : null, count);
-                })
-                .toList();
+        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands, likeCounts);
 
         return new PageResponse<>(productInfos, products.page(), products.size(), products.totalPages());
     }
@@ -114,7 +101,7 @@ public class ProductFacade {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
-        Optional<Brand> optionalBrand = brandRepository.findById(product.brand());
+        Optional<Brand> optionalBrand = brandRepository.findById(product.brandId());
         long likeCount = likeRepository.countByProductId(productId);
 
         return ProductInfo.of(product, optionalBrand.map(Brand::name).orElse(null), likeCount);

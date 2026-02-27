@@ -68,7 +68,7 @@ public class Product extends BaseEntity {
         return price;
     }
 
-    public Long brand() {
+    public Long brandId() {
         return brandId;
     }
 

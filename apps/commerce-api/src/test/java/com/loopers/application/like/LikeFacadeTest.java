@@ -27,8 +27,9 @@ class LikeFacadeTest {
     ProductRepository productRepository = mock(ProductRepository.class);
     LikeRepository likeRepository = mock(LikeRepository.class);
     BrandRepository brandRepository = mock(BrandRepository.class);
+    LikeAssembler likeAssembler = new LikeAssembler();
 
-    LikeFacade likeFacade = new LikeFacade(userRepository, productRepository, likeRepository, brandRepository);
+    LikeFacade likeFacade = new LikeFacade(userRepository, productRepository, likeRepository, brandRepository, likeAssembler);
 
     @DisplayName("좋아요 시, ")
     @Nested

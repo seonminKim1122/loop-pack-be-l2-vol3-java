@@ -31,7 +31,8 @@ class ProductFacadeTest {
     BrandRepository brandRepository = mock(BrandRepository.class);
     ProductRepository productRepository = mock(ProductRepository.class);
     LikeRepository likeRepository = mock(LikeRepository.class);
-    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository);
+    ProductAssembler productAssembler = new ProductAssembler();
+    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler);
 
     @DisplayName("상품 등록 시, ")
     @Nested
@@ -110,7 +111,7 @@ class ProductFacadeTest {
             PageRequest pageRequest = PageRequest.of(0, 20);
             when(productRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(product), 0, 20, 1));
             when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of());
-            when(likeRepository.countsByProductIdIn(List.of(0L))).thenReturn(Map.of());
+            when(likeRepository.countsByProductIdIn(List.of(0L))).thenReturn(Map.of(0L, 5L));
 
             // act
             PageResponse<ProductInfo> result = productFacade.getList(pageRequest);
