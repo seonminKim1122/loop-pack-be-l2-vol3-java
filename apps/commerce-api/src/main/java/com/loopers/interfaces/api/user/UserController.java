@@ -1,50 +1,48 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.domain.user.LoginId;
-import com.loopers.domain.user.UserService;
+import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserInfo;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.auth.AuthenticatedUser;
+import com.loopers.interfaces.auth.CurrentUser;
+import com.loopers.interfaces.auth.LoginRequired;
 import lombok.RequiredArgsConstructor;
-import com.loopers.domain.user.UserInfo;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
-@RequestMapping("/api/users")
 @RequiredArgsConstructor
-public class UserController implements UserApiSpec {
+@RestController
+@RequestMapping("/api/v1/users")
+public class UserController {
 
-    private final UserService userService;
+    private final UserFacade userFacade;
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    @Override
-    public ApiResponse<UserDto.SignupResponse> signup(@RequestBody UserDto.SignupRequest signRequest) {
-        LoginId loginId = userService.signup(
-                signRequest.loginId(),
-                signRequest.password(),
-                signRequest.name(),
-                signRequest.birthDate(),
-                signRequest.email()
-        );
+    public ApiResponse<Void> signup(@RequestBody UserDto.SignupRequest request) {
 
-        UserDto.SignupResponse response = UserDto.SignupResponse.from(loginId);
-        return ApiResponse.success(response);
+        userFacade.signup(request.loginId(),
+                          request.password(),
+                          request.name(),
+                          request.birthDate(),
+                          request.email());
+
+        return ApiResponse.success(null);
     }
 
+    @LoginRequired
     @GetMapping("/me")
-    public ApiResponse<UserDto.MyInfoResponse> getMyInfo(
-            @RequestHeader("X-Loopers-LoginId") String loginId,
-            @RequestHeader("X-Loopers-LoginPw") String password) {
-        UserInfo userInfo = userService.getMyInfo(loginId, password);
+    public ApiResponse<UserDto.MyInfoResponse> getMyInfo(@CurrentUser AuthenticatedUser authUser) {
+        UserInfo userInfo = userFacade.getMyInfo(authUser.id());
         return ApiResponse.success(UserDto.MyInfoResponse.from(userInfo));
     }
 
-    @PatchMapping("/me/password")
-    public ApiResponse<Object> changePassword(
-            @RequestHeader("X-Loopers-LoginId") String loginId,
-            @RequestHeader("X-Loopers-LoginPw") String currentPassword,
+    @LoginRequired
+    @PutMapping("/me/password")
+    public ApiResponse<Void> changePassword(
+            @CurrentUser AuthenticatedUser authUser,
             @RequestBody UserDto.ChangePasswordRequest request) {
-        userService.changePassword(loginId, currentPassword, request.newPassword());
-        return ApiResponse.success();
+        userFacade.changePassword(authUser.id(), request.newPassword());
+        return ApiResponse.success(null);
     }
 }

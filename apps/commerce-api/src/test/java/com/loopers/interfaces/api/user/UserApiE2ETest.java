@@ -10,7 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 
@@ -20,250 +24,274 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UserApiE2ETest {
 
-    private static final String ENDPOINT = "/api/users";
+    private static final String ENDPOINT = "/api/v1/users";
+
+    private final TestRestTemplate testRestTemplate;
+    private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
-    TestRestTemplate testRestTemplate;
-
-    @Autowired
-    DatabaseCleanUp databaseCleanUp;
+    public UserApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+        this.testRestTemplate = testRestTemplate;
+        this.databaseCleanUp = databaseCleanUp;
+    }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("POST /api/users")
+    @DisplayName("POST /api/v1/users")
     @Nested
     class Signup {
 
+        @DisplayName("유효한 정보로 회원가입 시, 201 응답을 반환한다.")
         @Test
-        void 정상_요청이면_201_CREATED와_loginId를_반환한다() {
-            // Arrange
+        void returnsCreated_whenRequestIsValid() {
+            // arrange
             UserDto.SignupRequest request = new UserDto.SignupRequest(
-                    "loopers123", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
+                "testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im"
             );
 
-            // Act
-            ResponseEntity<ApiResponse<UserDto.SignupResponse>> response = testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(request, jsonHeaders()),
-                    new ParameterizedTypeReference<>() {}
-            );
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
-            // Assert
+            // assert
             assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
-                    () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.SUCCESS),
-                    () -> assertThat(response.getBody().data().loginId()).isEqualTo("loopers123")
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.SUCCESS)
             );
         }
 
+        @DisplayName("중복된 loginId 로 회원가입 시, 409 응답을 반환한다.")
         @Test
-        void 중복된_로그인ID면_409_CONFLICT를_반환한다() {
-            // Arrange
-            UserDto.SignupRequest first = new UserDto.SignupRequest(
-                    "loopers123", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
+        void returnsConflict_whenLoginIdIsDuplicated() {
+            // arrange
+            UserDto.SignupRequest request = new UserDto.SignupRequest(
+                "testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im"
             );
-            testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(first, jsonHeaders()),
-                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
-            );
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), Void.class);
 
-            UserDto.SignupRequest duplicate = new UserDto.SignupRequest(
-                    "loopers123", "otherPass123!", "다른이름",
-                    LocalDate.of(2000, 1, 1), "other@loopers.im"
-            );
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
-            // Act
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(duplicate, jsonHeaders()),
-                    new ParameterizedTypeReference<>() {}
-            );
-
-            // Assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
-                    () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.FAIL)
-            );
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
+        @DisplayName("유효하지 않은 loginId 로 회원가입 시, 400 응답을 반환한다.")
         @Test
-        void 잘못된_입력값이면_400_BAD_REQUEST를_반환한다() {
-            // Arrange
+        void returnsBadRequest_whenLoginIdIsInvalid() {
+            // arrange
             UserDto.SignupRequest request = new UserDto.SignupRequest(
-                    "ab", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
+                "abc", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im"
             );
 
-            // Act
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(request, jsonHeaders()),
-                    new ParameterizedTypeReference<>() {}
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("유효하지 않은 비밀번호로 회원가입 시, 400 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenPasswordIsInvalid() {
+            // arrange
+            UserDto.SignupRequest request = new UserDto.SignupRequest(
+                "testUser1", "pass", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im"
             );
 
-            // Assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.FAIL)
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("유효하지 않은 이름으로 회원가입 시, 400 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenNameIsInvalid() {
+            // arrange
+            UserDto.SignupRequest request = new UserDto.SignupRequest(
+                "testUser1", "test1234!", "홍", LocalDate.of(1990, 1, 1), "test@loopers.im"
             );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("미래 생년월일로 회원가입 시, 400 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenBirthDateIsInFuture() {
+            // arrange
+            UserDto.SignupRequest request = new UserDto.SignupRequest(
+                "testUser1", "test1234!", "홍길동", LocalDate.now().plusDays(1), "test@loopers.im"
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("유효하지 않은 이메일로 회원가입 시, 400 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenEmailIsInvalid() {
+            // arrange
+            UserDto.SignupRequest request = new UserDto.SignupRequest(
+                "testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "invalid-email"
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 
-    @DisplayName("GET /api/users/me")
+    @DisplayName("GET /api/v1/users/me")
     @Nested
     class GetMyInfo {
 
+        @DisplayName("인증 헤더 없이 요청 시, 401 응답을 반환한다.")
         @Test
-        void 정상_인증이면_200_OK와_유저정보를_반환한다() {
-            // Arrange
-            UserDto.SignupRequest signupRequest = new UserDto.SignupRequest(
-                    "loopers123", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
-            );
-            testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(signupRequest, jsonHeaders()),
-                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
-            );
+        void returnsUnauthorized_whenHeadersMissing() {
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, HttpEntity.EMPTY, responseType);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", "loopers123");
-            headers.set("X-Loopers-LoginPw", "loopers123!@");
-
-            // Act
-            ResponseEntity<ApiResponse<UserDto.MyInfoResponse>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(null, headers),
-                    new ParameterizedTypeReference<>() {}
-            );
-
-            // Assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().loginId()).isEqualTo("loopers123"),
-                    () -> assertThat(response.getBody().data().name()).isEqualTo("루퍼*"),
-                    () -> assertThat(response.getBody().data().birthDate()).isEqualTo(LocalDate.of(1996, 11, 22)),
-                    () -> assertThat(response.getBody().data().email()).isEqualTo("test@loopers.im")
-            );
-        }
-
-        @Test
-        void 존재하지_않는_loginId면_404_NOT_FOUND를_반환한다() {
-            // Arrange
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", "nonexist12");
-            headers.set("X-Loopers-LoginPw", "loopers123!@");
-
-            // Act
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(null, headers),
-                    new ParameterizedTypeReference<>() {}
-            );
-
-            // Assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        }
-
-        @Test
-        void 비밀번호가_불일치하면_401_UNAUTHORIZED를_반환한다() {
-            // Arrange
-            UserDto.SignupRequest signupRequest = new UserDto.SignupRequest(
-                    "loopers123", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
-            );
-            testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(signupRequest, jsonHeaders()),
-                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
-            );
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", "loopers123");
-            headers.set("X-Loopers-LoginPw", "wrongPass123!");
-
-            // Act
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(null, headers),
-                    new ParameterizedTypeReference<>() {}
-            );
-
-            // Assert
+            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("잘못된 비밀번호로 요청 시, 401 응답을 반환한다.")
+        @Test
+        void returnsUnauthorized_whenPasswordIsWrong() {
+            // arrange
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(new UserDto.SignupRequest("testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im")),
+                Void.class);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testUser1");
+            headers.set("X-Loopers-LoginPw", "wrongPassword");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("유효한 인증으로 요청 시, 200 과 내 정보를 반환한다.")
+        @Test
+        void returnsMyInfo_whenCredentialsAreValid() {
+            // arrange
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(new UserDto.SignupRequest("testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im")),
+                Void.class);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testUser1");
+            headers.set("X-Loopers-LoginPw", "test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<UserDto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserDto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo("testUser1"),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
+                () -> assertThat(response.getBody().data().birthDate()).isEqualTo(LocalDate.of(1990, 1, 1)),
+                () -> assertThat(response.getBody().data().email()).isEqualTo("test@loopers.im")
+            );
         }
     }
 
-    @DisplayName("PATCH /api/users/me/password")
+    @DisplayName("PUT /api/v1/users/me/password")
     @Nested
     class ChangePassword {
 
+        @DisplayName("인증 헤더 없이 요청 시, 401 응답을 반환한다.")
         @Test
-        void 정상_변경이면_200_OK를_반환한다() {
-            // Arrange - 회원가입
-            UserDto.SignupRequest signupRequest = new UserDto.SignupRequest(
-                    "loopers123", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
-            );
-            testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(signupRequest, jsonHeaders()),
-                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
-            );
+        void returnsUnauthorized_whenHeadersMissing() {
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me/password", HttpMethod.PUT,
+                    new HttpEntity<>(new UserDto.ChangePasswordRequest("newPass1!")), responseType);
 
-            HttpHeaders headers = jsonHeaders();
-            headers.set("X-Loopers-LoginId", "loopers123");
-            headers.set("X-Loopers-LoginPw", "loopers123!@");
-            UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest("newPass1234!");
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
 
-            // Act
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/me/password", HttpMethod.PATCH, new HttpEntity<>(request, headers),
-                    new ParameterizedTypeReference<>() {}
-            );
+        @DisplayName("현재 비밀번호와 동일한 비밀번호로 수정 시, 400 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenNewPasswordIsSameAsCurrent() {
+            // arrange
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(new UserDto.SignupRequest("testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im")),
+                Void.class);
 
-            // Assert
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testUser1");
+            headers.set("X-Loopers-LoginPw", "test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me/password", HttpMethod.PUT,
+                    new HttpEntity<>(new UserDto.ChangePasswordRequest("test1234!"), headers), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("유효한 새 비밀번호로 수정 시, 200 응답을 반환한다.")
+        @Test
+        void returnsOk_whenRequestIsValid() {
+            // arrange
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(new UserDto.SignupRequest("testUser1", "test1234!", "홍길동", LocalDate.of(1990, 1, 1), "test@loopers.im")),
+                Void.class);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testUser1");
+            headers.set("X-Loopers-LoginPw", "test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me/password", HttpMethod.PUT,
+                    new HttpEntity<>(new UserDto.ChangePasswordRequest("newPass1!"), headers), responseType);
+
+            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
-
-        @Test
-        void 변경_후_새_비밀번호로_인증할_수_있다() {
-            // Arrange - 회원가입 후 비밀번호 변경
-            UserDto.SignupRequest signupRequest = new UserDto.SignupRequest(
-                    "loopers123", "loopers123!@", "루퍼스",
-                    LocalDate.of(1996, 11, 22), "test@loopers.im"
-            );
-            testRestTemplate.exchange(
-                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(signupRequest, jsonHeaders()),
-                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
-            );
-
-            HttpHeaders changeHeaders = jsonHeaders();
-            changeHeaders.set("X-Loopers-LoginId", "loopers123");
-            changeHeaders.set("X-Loopers-LoginPw", "loopers123!@");
-            testRestTemplate.exchange(
-                    ENDPOINT + "/me/password", HttpMethod.PATCH,
-                    new HttpEntity<>(new UserDto.ChangePasswordRequest("newPass1234!"), changeHeaders),
-                    new ParameterizedTypeReference<ApiResponse<Object>>() {}
-            );
-
-            // Act - 새 비밀번호로 내 정보 조회
-            HttpHeaders newHeaders = new HttpHeaders();
-            newHeaders.set("X-Loopers-LoginId", "loopers123");
-            newHeaders.set("X-Loopers-LoginPw", "newPass1234!");
-
-            ResponseEntity<ApiResponse<UserDto.MyInfoResponse>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(null, newHeaders),
-                    new ParameterizedTypeReference<>() {}
-            );
-
-            // Assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().loginId()).isEqualTo("loopers123")
-            );
-        }
-    }
-
-    private HttpHeaders jsonHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        return headers;
     }
 }

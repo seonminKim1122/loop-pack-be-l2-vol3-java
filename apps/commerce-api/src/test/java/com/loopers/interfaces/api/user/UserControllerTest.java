@@ -1,110 +1,130 @@
 package com.loopers.interfaces.api.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.user.LoginId;
-import com.loopers.domain.user.UserService;
+import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserInfo;
+import com.loopers.config.WebMvcConfig;
+import com.loopers.interfaces.auth.AuthArgumentResolver;
+import com.loopers.interfaces.auth.AuthInterceptor;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
-import com.loopers.domain.user.UserInfo;
-
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@Import({AuthInterceptor.class, AuthArgumentResolver.class, WebMvcConfig.class})
 @WebMvcTest(UserController.class)
 class UserControllerTest {
-
     @Autowired
     MockMvc mockMvc;
-
     @Autowired
     ObjectMapper objectMapper;
-
     @MockitoBean
-    UserService userService;
+    UserFacade userFacade;
 
-    @DisplayName("회원가입 시,")
-    @Nested
-    class Signup {
+    @Test
+    @DisplayName("회원가입 성공 시, 201 CREATED")
+    void signup() throws Exception{
+        // given
+        UserDto.SignupRequest request = new UserDto.SignupRequest(
+                "loginId",
+                "password",
+                "name",
+                LocalDate.now(),
+                "email"
+        );
 
-        @Test
-        void 성공하면_201_CREATED() throws Exception {
-            // given
-            UserDto.SignupRequest request = new UserDto.SignupRequest(
-                    "looper123",
-                    "password123",
-                    "루퍼스",
-                    LocalDate.of(1996, 11, 22),
-                    "test@loopers.im"
-            );
+        mockMvc.perform(post("/api/v1/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.meta.result").value("SUCCESS"));
 
-            when(userService.signup(request.loginId(), request.password(), request.name(), request.birthDate(), request.email()))
-                    .thenReturn(LoginId.from("looper123"));
-
-            String content = objectMapper.writeValueAsString(request);
-
-            // when-then
-            mockMvc.perform(post("/api/users")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(content))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.data.loginId").value("looper123"));
-       }
+        verify(userFacade).signup(request.loginId(), request.password(), request.name(), request.birthDate(), request.email());
     }
 
-    @DisplayName("내 정보 조회 시,")
     @Nested
+    @DisplayName("GET /api/v1/users/me 요청 시, ")
     class GetMyInfo {
 
+        @DisplayName("인증 헤더가 없으면, 401 을 반환한다.")
         @Test
-        void 성공하면_200_OK와_유저정보를_반환한다() throws Exception {
-            // Arrange
-            UserInfo userInfo = new UserInfo("loopers123", "루퍼*", LocalDate.of(1996, 11, 22), "test@loopers.im");
-            when(userService.getMyInfo("loopers123", "loopers123!@")).thenReturn(userInfo);
+        void returns401_whenHeadersMissing() throws Exception {
+            mockMvc.perform(get("/api/v1/users/me"))
+                .andExpect(status().isUnauthorized());
+        }
 
-            // Act & Assert
-            mockMvc.perform(get("/api/users/me")
-                            .header("X-Loopers-LoginId", "loopers123")
-                            .header("X-Loopers-LoginPw", "loopers123!@"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.loginId").value("loopers123"))
-                    .andExpect(jsonPath("$.data.name").value("루퍼*"))
-                    .andExpect(jsonPath("$.data.birthDate").value("1996-11-22"))
-                    .andExpect(jsonPath("$.data.email").value("test@loopers.im"));
+        @DisplayName("인증에 실패하면, 401 을 반환한다.")
+        @Test
+        void returns401_whenAuthFails() throws Exception {
+            doThrow(new CoreException(ErrorType.UNAUTHORIZED))
+                .when(userFacade).authenticate(any(), any());
+
+            mockMvc.perform(get("/api/v1/users/me")
+                .header("X-Loopers-LoginId", "testUser1")
+                .header("X-Loopers-LoginPw", "wrongPassword"))
+                .andExpect(status().isUnauthorized());
+        }
+
+        @DisplayName("인증에 성공하면, 200 과 내 정보를 반환한다.")
+        @Test
+        void returns200WithMyInfo_whenAuthSucceeds() throws Exception {
+            UserInfo userInfo = new UserInfo("testUser1", "홍길*", LocalDate.of(1990, 1, 1), "test@loopers.im");
+            when(userFacade.getMyInfo(any())).thenReturn(userInfo);
+
+            mockMvc.perform(get("/api/v1/users/me")
+                .header("X-Loopers-LoginId", "testUser1")
+                .header("X-Loopers-LoginPw", "test1234!"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loginId").value("testUser1"))
+                .andExpect(jsonPath("$.data.name").value("홍길*"))
+                .andExpect(jsonPath("$.data.birthDate").value("1990-01-01"))
+                .andExpect(jsonPath("$.data.email").value("test@loopers.im"));
         }
     }
 
-    @DisplayName("비밀번호 수정 시,")
     @Nested
+    @DisplayName("PUT /api/v1/users/me/password")
     class ChangePassword {
 
+        private static final String ENDPOINT = "/api/v1/users";
+
+        @DisplayName("인증 헤더 없이 요청 시, 401 응답을 반환한다.")
         @Test
-        void 성공하면_200_OK를_반환한다() throws Exception {
-            // Arrange
-            UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest("newPass1234!");
-            doNothing().when(userService).changePassword("loopers123", "loopers123!@", "newPass1234!");
+        void returnsUnauthorized_whenHeadersMissing() throws Exception {
+            mockMvc.perform(put(ENDPOINT + "/me/password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"newPassword\":\"newPass1!\"}"))
+                .andExpect(status().isUnauthorized());
+        }
 
-            String content = objectMapper.writeValueAsString(request);
-
-            // Act & Assert
-            mockMvc.perform(patch("/api/users/me/password")
-                            .header("X-Loopers-LoginId", "loopers123")
-                            .header("X-Loopers-LoginPw", "loopers123!@")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(content))
-                    .andExpect(status().isOk());
+        @DisplayName("유효한 인증으로 요청 시, 200 응답을 반환한다.")
+        @Test
+        void returnsOk_whenRequestIsValid() throws Exception {
+            mockMvc.perform(put(ENDPOINT + "/me/password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"newPassword\":\"newPass1!\"}")
+                    .header("X-Loopers-LoginId", "testUser1")
+                    .header("X-Loopers-LoginPw", "test1234!"))
+                .andExpect(status().isOk());
         }
     }
-
 }

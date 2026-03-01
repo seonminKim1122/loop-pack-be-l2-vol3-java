@@ -1,75 +1,54 @@
 package com.loopers.domain.user;
 
 import com.loopers.domain.BaseEntity;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
-import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
+import com.loopers.domain.user.vo.BirthDate;
+import com.loopers.domain.user.vo.Email;
+import com.loopers.domain.user.vo.LoginId;
+import com.loopers.domain.user.vo.Name;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
 
     @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "login_id", nullable = false, unique = true))
     private LoginId loginId;
 
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "password", nullable = false))
-    private Password password;
+    @Column(name = "password")
+    private String encodedPassword;
 
     @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "name", nullable = false))
     private Name name;
 
     @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "birth_date", nullable = false))
     private BirthDate birthDate;
 
     @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "email", nullable = false))
     private Email email;
 
-    private User(LoginId loginId, Password password, Name name, BirthDate birthDate, Email email) {
+    protected User() {}
+
+    private User(LoginId loginId, String encodedPassword, Name name, BirthDate birthDate, Email email) {
         this.loginId = loginId;
-        this.password = password;
+        this.encodedPassword = encodedPassword;
         this.name = name;
         this.birthDate = birthDate;
         this.email = email;
     }
 
-    public static User create(LoginId loginId, Password password, Name name, BirthDate birthDate, Email email) {
-        if (loginId == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "로그인ID는 필수입니다.");
-        }
-
-        if (password == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 필수입니다.");
-        }
-
-        if (name == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 필수입니다.");
-        }
-
-        if (birthDate == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수입니다.");
-        }
-
-        if (email == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이메일은 필수입니다.");
-        }
-
-        return new User(loginId, password, name, birthDate, email);
+    public static User create(LoginId loginId, String encodedPassword, Name name, BirthDate birthDate, Email email) {
+        return new User(loginId, encodedPassword, name, birthDate, email);
     }
 
     public LoginId loginId() {
         return loginId;
     }
 
-    public Password password() {
-        return password;
+    public String password() {
+        return encodedPassword;
     }
 
     public Name name() {
@@ -84,7 +63,7 @@ public class User extends BaseEntity {
         return email;
     }
 
-    public void changePassword(Password newPassword) {
-        this.password = newPassword;
+    public void changePassword(String encodedPassword) {
+        this.encodedPassword = encodedPassword;
     }
 }
