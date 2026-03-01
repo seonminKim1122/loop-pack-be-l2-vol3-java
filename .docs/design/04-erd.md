@@ -62,7 +62,32 @@ erDiagram
         datetime updated_at
     }
 
+    COUPON_TEMPLATE {
+        bigint id PK
+        varchar name
+        varchar coupon_type
+        int value
+        datetime expired_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    ISSUED_COUPON {
+        bigint id PK
+        bigint user_id
+        bigint coupon_template_id
+        varchar name
+        varchar coupon_type
+        int value
+        datetime expired_at
+        varchar status
+        datetime created_at
+        datetime updated_at
+    }
+
     USERS ||--o{ ORDERS : "places"
+    USERS ||--o{ ISSUED_COUPON : "owns"
+    COUPON_TEMPLATE ||--o{ ISSUED_COUPON : "issues"
     USERS ||--o{ LIKES : ""
     ORDERS ||--|{ ORDER_ITEM : "contains"
     PRODUCT ||--o{ LIKES : ""
