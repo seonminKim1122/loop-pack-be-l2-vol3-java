@@ -11,15 +11,13 @@ import java.util.stream.Collectors;
 @Component
 public class ProductAssembler {
 
-    public List<ProductInfo> toInfos(List<Product> products, List<Brand> brands, Map<Long, Long> likeCounts) {
-
+    public List<ProductInfo> toInfos(List<Product> products, List<Brand> brands) {
         Map<Long, Brand> brandMap = brands.stream().collect(Collectors.toMap(Brand::getId, b -> b));
 
         return products.stream()
                 .map(product -> {
                     Brand brand = brandMap.get(product.brandId());
-                    long count = likeCounts.get(product.getId());
-                    return ProductInfo.of(product, brand.name(), count);
+                    return ProductInfo.of(product, brand != null ? brand.name() : null);
                 }).toList();
     }
 }

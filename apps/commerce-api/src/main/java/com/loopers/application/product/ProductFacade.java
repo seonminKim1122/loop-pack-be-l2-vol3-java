@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -61,17 +60,12 @@ public class ProductFacade {
         List<Long> brandIds = productList.stream().map(Product::brandId).toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
 
-        List<Long> productIds = productList.stream().map(Product::getId).toList();
-        Map<Long, Long> likeCounts = likeRepository.countsByProductIdIn(productIds);
-
-
-        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands, likeCounts);
+        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands);
         return new PageResponse<>(productInfos, products.page(), products.size(), products.totalPages());
     }
 
     @Transactional(readOnly = true)
     public PageResponse<ProductInfo> getList(Pageable pageable, Long brandId, String sort) {
-
         PageRequest pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), ProductSortType.from(sort).getSort());
         PageResponse<Product> products;
         if (brandId == null) {
@@ -86,11 +80,7 @@ public class ProductFacade {
         List<Long> brandIds = productList.stream().map(Product::brandId).toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
 
-        List<Long> productIds = productList.stream().map(Product::getId).toList();
-        Map<Long, Long> likeCounts = likeRepository.countsByProductIdIn(productIds);
-
-        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands, likeCounts);
-
+        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands);
         return new PageResponse<>(productInfos, products.page(), products.size(), products.totalPages());
     }
 
@@ -100,9 +90,7 @@ public class ProductFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
         Optional<Brand> optionalBrand = brandRepository.findById(product.brandId());
-        long likeCount = likeRepository.countByProductId(productId);
-
-        return ProductInfo.of(product, optionalBrand.map(Brand::name).orElse(null), likeCount);
+        return ProductInfo.of(product, optionalBrand.map(Brand::name).orElse(null));
     }
 
     @Transactional

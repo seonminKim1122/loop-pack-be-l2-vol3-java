@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -29,16 +29,30 @@ public class LikeFacade {
     @Transactional
     public void like(Long userId, Long productId) {
         if (!userRepository.existsById(userId)) throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다.");
-        if (!productRepository.existsById(productId)) throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.");
+
+        Optional<Product> optionalProduct = productRepository.findById(productId);
+        if (optionalProduct.isEmpty()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.");
+        }
+
+        Product product = optionalProduct.get();
 
         if (!likeRepository.existsByUserIdAndProductId(userId, productId)) {
             likeRepository.save(Like.of(userId, productId));
+            product.increaseLike();
         }
     }
 
     @Transactional
     public void unlike(Long userId, Long productId) {
+        if (!likeRepository.existsByUserIdAndProductId(userId, productId)) return;
+
+        Optional<Product> optionalProduct = productRepository.findById(productId);
+        if (optionalProduct.isEmpty()) return;
+
+        Product product = optionalProduct.get();
         likeRepository.deleteByUserIdAndProductId(userId, productId);
+        product.decreaseLike();
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +66,6 @@ public class LikeFacade {
         List<Long> brandIds = products.stream().map(Product::brandId).distinct().toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
 
-        Map<Long, Long> likeCounts = likeRepository.countsByProductIdIn(productIds);
-        return likeAssembler.toInfos(products, brands, likeCounts);
+        return likeAssembler.toInfos(products, brands);
     }
 }

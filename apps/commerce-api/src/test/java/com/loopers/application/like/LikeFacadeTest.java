@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,8 +40,9 @@ class LikeFacadeTest {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
+            Product product = Product.of("상품명", "설명", Stock.from(10), Price.from(1000), 1L);
             when(userRepository.existsById(userId)).thenReturn(true);
-            when(productRepository.existsById(productId)).thenReturn(true);
+            when(productRepository.findById(productId)).thenReturn(java.util.Optional.of(product));
             when(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(false);
 
             // act
@@ -94,8 +94,9 @@ class LikeFacadeTest {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
+            Product product = Product.of("상품명", "설명", Stock.from(10), Price.from(1000), 1L);
             when(userRepository.existsById(userId)).thenReturn(true);
-            when(productRepository.existsById(productId)).thenReturn(true);
+            when(productRepository.findById(productId)).thenReturn(java.util.Optional.of(product));
             when(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(true);
 
             // act
@@ -116,6 +117,9 @@ class LikeFacadeTest {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
+            Product product = Product.of("상품명", "설명", Stock.from(10), Price.from(1000), 1L);
+            when(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(true);
+            when(productRepository.findById(productId)).thenReturn(java.util.Optional.of(product));
 
             // act
             likeFacade.unlike(userId, productId);
@@ -158,7 +162,6 @@ class LikeFacadeTest {
             when(likeRepository.findAllByUserId(userId)).thenReturn(List.of(like));
             when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
             when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
-            when(likeRepository.countsByProductIdIn(List.of(productId))).thenReturn(Map.of(productId, 3L));
 
             // act
             List<LikeProductInfo> result = likeFacade.getLikeList(userId);
@@ -167,7 +170,7 @@ class LikeFacadeTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).name()).isEqualTo("상품명");
             assertThat(result.get(0).brand()).isEqualTo("브랜드명");
-            assertThat(result.get(0).likeCount()).isEqualTo(3L);
+            assertThat(result.get(0).likeCount()).isEqualTo(0L);
         }
     }
 }
