@@ -11,4 +11,8 @@ public class CouponDto {
     public static record TemplateRegisterResponse(Long templateId) {
 
     }
+
+    public static record TemplateUpdateRequest(String name, int value, ZonedDateTime expiredAt) {
+
+    }
 }

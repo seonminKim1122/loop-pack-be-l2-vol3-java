@@ -5,6 +5,8 @@ import com.loopers.domain.coupon.CouponTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @RequiredArgsConstructor
 @Component
 public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
@@ -15,5 +17,10 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     public Long save(CouponTemplate couponTemplate) {
         CouponTemplate savedCouponTemplate = jpaRepository.save(couponTemplate);
         return savedCouponTemplate.getId();
+    }
+
+    @Override
+    public Optional<CouponTemplate> findById(Long id) {
+        return jpaRepository.findById(id);
     }
 }

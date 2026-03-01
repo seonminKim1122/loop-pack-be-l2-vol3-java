@@ -41,9 +41,35 @@ public class CouponTemplate extends BaseEntity {
         }
 
         if (couponType == CouponType.RATE && value > 100) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "정률 할인일 때 할일율이 100퍼센트를 초과할 수 없습니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, "정률 할인일 때 할인율이 100퍼센트를 초과할 수 없습니다.");
         }
 
         return new CouponTemplate(name, couponType, value, expiredAt);
+    }
+
+    public void update(String name, int value, ZonedDateTime expiredAt) {
+        if (value <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "할인 값은 0보다 커야 합니다.");
+        }
+
+        if (this.couponType == CouponType.RATE && value > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "정률 할인일 때 할인율이 100퍼센트를 초과할 수 없습니다.");
+        }
+
+        this.name = name;
+        this.value = value;
+        this.expiredAt = expiredAt;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public int value() {
+        return value;
+    }
+
+    public ZonedDateTime expiredAt() {
+        return expiredAt;
     }
 }

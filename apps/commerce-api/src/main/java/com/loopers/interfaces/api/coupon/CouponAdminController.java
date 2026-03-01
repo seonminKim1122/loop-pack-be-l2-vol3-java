@@ -5,10 +5,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AdminOnly;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -26,4 +23,12 @@ public class CouponAdminController {
         return ApiResponse.success(response);
     }
 
+    @AdminOnly
+    @PutMapping("/api-admin/v1/coupons/{couponId}")
+    public ApiResponse<Void> update(@PathVariable Long couponId,
+                                    @RequestBody CouponDto.TemplateUpdateRequest request) {
+
+        couponFacade.updateTemplate(couponId, request.name(), request.value(), request.expiredAt());
+        return ApiResponse.success(null);
+    }
 }
