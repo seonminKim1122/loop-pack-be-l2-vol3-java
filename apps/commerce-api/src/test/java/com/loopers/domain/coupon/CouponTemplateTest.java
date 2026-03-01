@@ -22,12 +22,11 @@ class CouponTemplateTest {
         void createsCouponTemplate_whenFixedTypeWithValidValue() {
             // arrange
             String name = "3000원 할인 쿠폰";
-            CouponType couponType = CouponType.FIXED;
             int value = 3000;
             ZonedDateTime expiredAt = ZonedDateTime.now().plusDays(30);
 
             // act
-            CouponTemplate result = CouponTemplate.of(name, couponType, value, expiredAt);
+            CouponTemplate result = CouponTemplate.of(name, "FIXED", value, expiredAt);
 
             // assert
             assertThat(result).isNotNull();
@@ -38,15 +37,40 @@ class CouponTemplateTest {
         void createsCouponTemplate_whenRateTypeWithValidValue() {
             // arrange
             String name = "10% 할인 쿠폰";
-            CouponType couponType = CouponType.RATE;
             int value = 10;
             ZonedDateTime expiredAt = ZonedDateTime.now().plusDays(30);
 
             // act
-            CouponTemplate result = CouponTemplate.of(name, couponType, value, expiredAt);
+            CouponTemplate result = CouponTemplate.of(name, "RATE", value, expiredAt);
 
             // assert
             assertThat(result).isNotNull();
+        }
+
+        @DisplayName("유효하지 않은 쿠폰 타입 문자열이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenTypeIsInvalid() {
+            // arrange & act
+            CoreException result = assertThrows(CoreException.class, () ->
+                CouponTemplate.of("쿠폰", "INVALID", 1000, ZonedDateTime.now().plusDays(30))
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("유효하지 않은 쿠폰 타입입니다.");
+        }
+
+        @DisplayName("쿠폰 타입이 null 이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenTypeIsNull() {
+            // arrange & act
+            CoreException result = assertThrows(CoreException.class, () ->
+                CouponTemplate.of("쿠폰", null, 1000, ZonedDateTime.now().plusDays(30))
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("유효하지 않은 쿠폰 타입입니다.");
         }
 
         @DisplayName("할인 값이 0이면, BAD_REQUEST 예외가 발생한다.")
@@ -54,7 +78,7 @@ class CouponTemplateTest {
         void throwsBadRequestException_whenValueIsZero() {
             // arrange & act
             CoreException result = assertThrows(CoreException.class, () ->
-                CouponTemplate.of("쿠폰", CouponType.FIXED, 0, ZonedDateTime.now().plusDays(30))
+                CouponTemplate.of("쿠폰", "FIXED", 0, ZonedDateTime.now().plusDays(30))
             );
 
             // assert
@@ -67,7 +91,7 @@ class CouponTemplateTest {
         void throwsBadRequestException_whenValueIsNegative() {
             // arrange & act
             CoreException result = assertThrows(CoreException.class, () ->
-                CouponTemplate.of("쿠폰", CouponType.FIXED, -1, ZonedDateTime.now().plusDays(30))
+                CouponTemplate.of("쿠폰", "FIXED", -1, ZonedDateTime.now().plusDays(30))
             );
 
             // assert
@@ -80,7 +104,7 @@ class CouponTemplateTest {
         void throwsBadRequestException_whenRateValueExceeds100() {
             // arrange & act
             CoreException result = assertThrows(CoreException.class, () ->
-                CouponTemplate.of("쿠폰", CouponType.RATE, 101, ZonedDateTime.now().plusDays(30))
+                CouponTemplate.of("쿠폰", "RATE", 101, ZonedDateTime.now().plusDays(30))
             );
 
             // assert
@@ -95,7 +119,7 @@ class CouponTemplateTest {
             ZonedDateTime expiredAt = ZonedDateTime.now().plusDays(30);
 
             // act
-            CouponTemplate result = CouponTemplate.of("100% 할인 쿠폰", CouponType.RATE, 100, expiredAt);
+            CouponTemplate result = CouponTemplate.of("100% 할인 쿠폰", "RATE", 100, expiredAt);
 
             // assert
             assertThat(result).isNotNull();

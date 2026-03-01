@@ -31,7 +31,11 @@ public class CouponTemplate extends BaseEntity {
         this.expiredAt = expiredAt;
     }
 
-    public static CouponTemplate of(String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
+    public static CouponTemplate of(String name, String type, int value, ZonedDateTime expiredAt) {
+        if (!CouponType.isValid(type)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 쿠폰 타입입니다.");
+        }
+        CouponType couponType = CouponType.valueOf(type);
         if (value <= 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "할인 값은 0보다 커야 합니다.");
         }
