@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -13,6 +14,7 @@ import java.time.ZonedDateTime;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "COUPON_TEMPLATE")
 public class CouponTemplate extends BaseEntity {
 
     private String name;
@@ -63,6 +65,10 @@ public class CouponTemplate extends BaseEntity {
 
     public String name() {
         return name;
+    }
+
+    public CouponType couponType() {
+        return couponType;
     }
 
     public int value() {

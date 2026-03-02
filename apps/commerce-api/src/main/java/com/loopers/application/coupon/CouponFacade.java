@@ -4,7 +4,9 @@ import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,5 +31,15 @@ public class CouponFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
 
         couponTemplate.update(name, value, expiredAt);
+    }
+
+    @Transactional
+    public void delete(Long couponId) {
+        couponTemplateRepository.deleteById(couponId);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<CouponTemplateListInfo> getList(Pageable pageable) {
+        return couponTemplateRepository.findAll(pageable).map(CouponTemplateListInfo::from);
     }
 }
