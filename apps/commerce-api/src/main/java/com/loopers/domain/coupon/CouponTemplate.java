@@ -3,10 +3,7 @@ package com.loopers.domain.coupon;
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -17,13 +14,17 @@ import java.time.ZonedDateTime;
 @Table(name = "COUPON_TEMPLATE")
 public class CouponTemplate extends BaseEntity {
 
+    @Column(name = "name")
     private String name;
 
+    @Column(name = "coupon_type")
     @Enumerated(EnumType.STRING)
     private CouponType couponType;
 
+    @Column(name = "value")
     private int value;
 
+    @Column(name = "expired_at")
     private ZonedDateTime expiredAt;
 
     private CouponTemplate(String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
@@ -77,5 +78,9 @@ public class CouponTemplate extends BaseEntity {
 
     public ZonedDateTime expiredAt() {
         return expiredAt;
+    }
+
+    public boolean isExpired() {
+        return expiredAt.isBefore(ZonedDateTime.now());
     }
 }

@@ -2,6 +2,10 @@ package com.loopers.application.coupon;
 
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
+import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageResponse;
@@ -16,7 +20,9 @@ import java.time.ZonedDateTime;
 @Component
 public class CouponFacade {
 
+    private final UserRepository userRepository;
     private final CouponTemplateRepository couponTemplateRepository;
+    private final IssuedCouponRepository issuedCouponRepository;
 
     @Transactional
     public Long registerTemplate(String name, String type, int value, ZonedDateTime expiredAt) {
@@ -49,5 +55,18 @@ public class CouponFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
 
         return CouponTemplateDetailInfo.from(couponTemplate);
+    }
+
+    @Transactional
+    public Long issue(Long couponId, Long userId) {
+
+        CouponTemplate couponTemplate = couponTemplateRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
+
+        IssuedCoupon issuedCoupon = IssuedCoupon.of(couponTemplate, user.getId());
+        return issuedCouponRepository.save(issuedCoupon);
     }
 }
