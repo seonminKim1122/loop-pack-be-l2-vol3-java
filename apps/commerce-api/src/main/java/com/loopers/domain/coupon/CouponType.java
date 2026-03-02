@@ -2,8 +2,16 @@ package com.loopers.domain.coupon;
 
 public enum CouponType {
 
-    FIXED,
-    RATE;
+    FIXED {
+        public long calculate(long amount, int value) {
+            return value;
+        }
+    },
+    RATE {
+        public long calculate(long amount, int value) {
+            return amount * value / 100;
+        }
+    };
 
     public static boolean isValid(String value) {
         try {
@@ -13,4 +21,6 @@ public enum CouponType {
             return false;
         }
     }
+
+    public abstract long calculate(long amount, int value);
 }

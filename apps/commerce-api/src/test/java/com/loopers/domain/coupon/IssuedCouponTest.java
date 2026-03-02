@@ -76,6 +76,53 @@ class IssuedCouponTest {
         }
     }
 
+    @DisplayName("calculateDiscount() 를 호출할 때, ")
+    @Nested
+    class CalculateDiscount {
+
+        @DisplayName("FIXED 타입 쿠폰은 주문 금액과 관계없이 고정 금액을 반환한다.")
+        @Test
+        void returnsFixedValue_whenCouponTypeIsFixed() {
+            // arrange
+            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+
+            // act
+            long result = issuedCoupon.calculateDiscount(10000L);
+
+            // assert
+            assertThat(result).isEqualTo(3000L);
+        }
+
+        @DisplayName("RATE 타입 쿠폰은 주문 금액의 비율만큼 할인 금액을 반환한다.")
+        @Test
+        void returnsRateBasedDiscount_whenCouponTypeIsRate() {
+            // arrange
+            CouponTemplate template = CouponTemplate.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30));
+            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+
+            // act
+            long result = issuedCoupon.calculateDiscount(10000L);
+
+            // assert
+            assertThat(result).isEqualTo(1000L);
+        }
+
+        @DisplayName("RATE 타입 쿠폰은 나눗셈 결과에서 소수점을 버린 금액을 반환한다.")
+        @Test
+        void truncatesDecimal_whenRateDiscountResultIsNotInteger() {
+            // arrange
+            CouponTemplate template = CouponTemplate.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30));
+            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+
+            // act
+            long result = issuedCoupon.calculateDiscount(1005L);  // 1005 * 10 / 100 = 100
+
+            // assert
+            assertThat(result).isEqualTo(100L);
+        }
+    }
+
     @DisplayName("status() 를 호출할 때, ")
     @Nested
     class Status {

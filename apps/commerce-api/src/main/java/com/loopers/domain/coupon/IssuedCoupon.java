@@ -87,4 +87,8 @@ public class IssuedCoupon extends BaseEntity {
 
         return status;
     }
+
+    public long calculateDiscount(long amount) {
+        return couponType.calculate(amount, value);
+    }
 }
