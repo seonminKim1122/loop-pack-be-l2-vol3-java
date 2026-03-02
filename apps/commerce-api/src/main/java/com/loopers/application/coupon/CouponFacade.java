@@ -42,4 +42,12 @@ public class CouponFacade {
     public PageResponse<CouponTemplateListInfo> getList(Pageable pageable) {
         return couponTemplateRepository.findAll(pageable).map(CouponTemplateListInfo::from);
     }
+
+    @Transactional(readOnly = true)
+    public CouponTemplateDetailInfo getDetail(Long couponId) {
+        CouponTemplate couponTemplate = couponTemplateRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
+
+        return CouponTemplateDetailInfo.from(couponTemplate);
+    }
 }

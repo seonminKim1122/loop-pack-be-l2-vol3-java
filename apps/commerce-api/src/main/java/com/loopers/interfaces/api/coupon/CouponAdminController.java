@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.coupon.CouponTemplateDetailInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AdminOnly;
 import com.loopers.support.page.PageResponse;
@@ -50,6 +51,15 @@ public class CouponAdminController {
 
         PageResponse<CouponAdminDto.TemplateListResponse> response = couponFacade.getList(PageRequest.of(page, size))
                 .map(CouponAdminDto.TemplateListResponse::from);
+        return ApiResponse.success(response);
+    }
+
+    @AdminOnly
+    @GetMapping("/api-admin/v1/coupons/{couponId}")
+    public ApiResponse<CouponAdminDto.TemplateDetailResponse> getDetail(@PathVariable Long couponId) {
+
+        CouponTemplateDetailInfo info = couponFacade.getDetail(couponId);
+        CouponAdminDto.TemplateDetailResponse response = CouponAdminDto.TemplateDetailResponse.from(info);
         return ApiResponse.success(response);
     }
 }
