@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Component
@@ -68,5 +69,14 @@ public class CouponFacade {
 
         IssuedCoupon issuedCoupon = IssuedCoupon.of(couponTemplate, user.getId());
         return issuedCouponRepository.save(issuedCoupon);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MyCouponInfo> getMyCouponList(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
+
+        List<IssuedCoupon> myCoupons = issuedCouponRepository.findAllByUserId(user.getId());
+        return myCoupons.stream().map(MyCouponInfo::from).toList();
     }
 }

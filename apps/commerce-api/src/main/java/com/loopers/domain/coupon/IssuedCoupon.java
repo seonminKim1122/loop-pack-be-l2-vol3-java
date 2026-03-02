@@ -68,4 +68,23 @@ public class IssuedCoupon extends BaseEntity {
                 couponTemplate.expiredAt());
     }
 
+    public String name() {
+        return name;
+    }
+
+    public CouponType couponType() {
+        return couponType;
+    }
+
+    public int value() {
+        return value;
+    }
+
+    public CouponStatus status() {
+        if (status == CouponStatus.AVAILABLE && expiredAt.isBefore(ZonedDateTime.now())) {
+            return CouponStatus.EXPIRED;
+        }
+
+        return status;
+    }
 }
