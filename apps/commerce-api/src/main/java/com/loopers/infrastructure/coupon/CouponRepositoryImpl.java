@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.coupon;
 
-import com.loopers.domain.coupon.CouponTemplate;
-import com.loopers.domain.coupon.CouponTemplateRepository;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.support.page.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -11,18 +11,17 @@ import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
-public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
+public class CouponRepositoryImpl implements CouponRepository {
 
-    private final CouponTemplateJpaRepository jpaRepository;
+    private final CouponJpaRepository jpaRepository;
 
     @Override
-    public Long save(CouponTemplate couponTemplate) {
-        CouponTemplate savedCouponTemplate = jpaRepository.save(couponTemplate);
-        return savedCouponTemplate.getId();
+    public Long save(Coupon coupon) {
+        return jpaRepository.save(coupon).getId();
     }
 
     @Override
-    public Optional<CouponTemplate> findById(Long id) {
+    public Optional<Coupon> findById(Long id) {
         return jpaRepository.findById(id);
     }
 
@@ -32,7 +31,7 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     }
 
     @Override
-    public PageResponse<CouponTemplate> findAll(Pageable pageable) {
+    public PageResponse<Coupon> findAll(Pageable pageable) {
         return PageResponse.from(jpaRepository.findAll(pageable));
     }
 }

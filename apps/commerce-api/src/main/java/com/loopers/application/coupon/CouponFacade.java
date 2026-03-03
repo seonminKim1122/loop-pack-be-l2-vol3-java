@@ -1,9 +1,9 @@
 package com.loopers.application.coupon;
 
-import com.loopers.domain.coupon.CouponTemplate;
-import com.loopers.domain.coupon.CouponTemplateRepository;
-import com.loopers.domain.coupon.IssuedCoupon;
-import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponRepository;
+import com.loopers.domain.coupon.UserCoupon;
+import com.loopers.domain.coupon.UserCouponRepository;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
@@ -22,53 +22,51 @@ import java.util.List;
 public class CouponFacade {
 
     private final UserRepository userRepository;
-    private final CouponTemplateRepository couponTemplateRepository;
-    private final IssuedCouponRepository issuedCouponRepository;
+    private final CouponRepository couponRepository;
+    private final UserCouponRepository userCouponRepository;
 
     @Transactional
-    public Long registerTemplate(String name, String type, int value, ZonedDateTime expiredAt) {
-
-        CouponTemplate couponTemplate = CouponTemplate.of(name, type, value, expiredAt);
-        return couponTemplateRepository.save(couponTemplate);
+    public Long register(String name, String type, int value, ZonedDateTime expiredAt) {
+        Coupon coupon = Coupon.of(name, type, value, expiredAt);
+        return couponRepository.save(coupon);
     }
 
     @Transactional
-    public void updateTemplate(Long couponId, String name, int value, ZonedDateTime expiredAt) {
-        CouponTemplate couponTemplate = couponTemplateRepository.findById(couponId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
+    public void update(Long couponId, String name, int value, ZonedDateTime expiredAt) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
 
-        couponTemplate.update(name, value, expiredAt);
+        coupon.update(name, value, expiredAt);
     }
 
     @Transactional
     public void delete(Long couponId) {
-        couponTemplateRepository.deleteById(couponId);
+        couponRepository.deleteById(couponId);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<CouponTemplateListInfo> getList(Pageable pageable) {
-        return couponTemplateRepository.findAll(pageable).map(CouponTemplateListInfo::from);
+    public PageResponse<CouponListInfo> getList(Pageable pageable) {
+        return couponRepository.findAll(pageable).map(CouponListInfo::from);
     }
 
     @Transactional(readOnly = true)
-    public CouponTemplateDetailInfo getDetail(Long couponId) {
-        CouponTemplate couponTemplate = couponTemplateRepository.findById(couponId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
+    public CouponDetailInfo getDetail(Long couponId) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
 
-        return CouponTemplateDetailInfo.from(couponTemplate);
+        return CouponDetailInfo.from(coupon);
     }
 
     @Transactional
     public Long issue(Long couponId, Long userId) {
-
-        CouponTemplate couponTemplate = couponTemplateRepository.findById(couponId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰 템플릿입니다."));
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
 
-        IssuedCoupon issuedCoupon = IssuedCoupon.of(couponTemplate, user.getId());
-        return issuedCouponRepository.save(issuedCoupon);
+        UserCoupon userCoupon = UserCoupon.of(coupon, user.getId());
+        return userCouponRepository.save(userCoupon);
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +74,7 @@ public class CouponFacade {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
 
-        List<IssuedCoupon> myCoupons = issuedCouponRepository.findAllByUserId(user.getId());
+        List<UserCoupon> myCoupons = userCouponRepository.findAllByUserId(user.getId());
         return myCoupons.stream().map(MyCouponInfo::from).toList();
     }
 }

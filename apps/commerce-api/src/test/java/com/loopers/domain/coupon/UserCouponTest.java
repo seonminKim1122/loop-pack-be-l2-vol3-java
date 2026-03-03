@@ -10,48 +10,48 @@ import java.time.ZonedDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class IssuedCouponTest {
+class UserCouponTest {
 
-    @DisplayName("IssuedCoupon 을 생성할 때, ")
+    @DisplayName("UserCoupon 을 생성할 때, ")
     @Nested
     class Create {
 
-        @DisplayName("유효한 쿠폰 템플릿과 사용자 ID 로 생성하면, IssuedCoupon 이 생성된다.")
+        @DisplayName("유효한 쿠폰과 사용자 ID 로 생성하면, UserCoupon 이 생성된다.")
         @Test
-        void createsIssuedCoupon_whenValidTemplateAndUserId() {
+        void createsUserCoupon_whenValidCouponAndUserId() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
             Long userId = 1L;
 
             // act
-            IssuedCoupon result = IssuedCoupon.of(template, userId);
+            UserCoupon result = UserCoupon.of(coupon, userId);
 
             // assert
             assertThat(result).isNotNull();
         }
 
-        @DisplayName("쿠폰 템플릿이 null 이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("쿠폰이 null 이면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenTemplateIsNull() {
+        void throwsBadRequestException_whenCouponIsNull() {
             // arrange & act
             CoreException result = assertThrows(CoreException.class, () ->
-                IssuedCoupon.of(null, 1L)
+                UserCoupon.of(null, 1L)
             );
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-            assertThat(result.getCustomMessage()).isEqualTo("쿠폰 템플릿은 필수입니다.");
+            assertThat(result.getCustomMessage()).isEqualTo("쿠폰은 필수입니다.");
         }
 
         @DisplayName("사용자 ID 가 null 이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequestException_whenUserIdIsNull() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                IssuedCoupon.of(template, null)
+                UserCoupon.of(coupon, null)
             );
 
             // assert
@@ -59,20 +59,20 @@ class IssuedCouponTest {
             assertThat(result.getCustomMessage()).isEqualTo("사용자ID는 필수입니다.");
         }
 
-        @DisplayName("만료된 쿠폰 템플릿으로 생성하면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("만료된 쿠폰으로 생성하면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenTemplateIsExpired() {
+        void throwsBadRequestException_whenCouponIsExpired() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().minusDays(1));
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().minusDays(1));
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                IssuedCoupon.of(template, 1L)
+                UserCoupon.of(coupon, 1L)
             );
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-            assertThat(result.getCustomMessage()).isEqualTo("만료된 쿠폰 템플릿입니다.");
+            assertThat(result.getCustomMessage()).isEqualTo("만료된 쿠폰입니다.");
         }
     }
 
@@ -84,11 +84,11 @@ class IssuedCouponTest {
         @Test
         void returnsFixedValue_whenCouponTypeIsFixed() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
-            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
 
             // act
-            long result = issuedCoupon.calculateDiscount(10000L);
+            long result = userCoupon.calculateDiscount(10000L);
 
             // assert
             assertThat(result).isEqualTo(3000L);
@@ -98,11 +98,11 @@ class IssuedCouponTest {
         @Test
         void returnsRateBasedDiscount_whenCouponTypeIsRate() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30));
-            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+            Coupon coupon = Coupon.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
 
             // act
-            long result = issuedCoupon.calculateDiscount(10000L);
+            long result = userCoupon.calculateDiscount(10000L);
 
             // assert
             assertThat(result).isEqualTo(1000L);
@@ -112,11 +112,11 @@ class IssuedCouponTest {
         @Test
         void truncatesDecimal_whenRateDiscountResultIsNotInteger() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30));
-            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+            Coupon coupon = Coupon.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
 
             // act
-            long result = issuedCoupon.calculateDiscount(1005L);  // 1005 * 10 / 100 = 100
+            long result = userCoupon.calculateDiscount(1005L);  // 1005 * 10 / 100 = 100
 
             // assert
             assertThat(result).isEqualTo(100L);
@@ -131,11 +131,11 @@ class IssuedCouponTest {
         @Test
         void returnsAvailable_whenCouponIsNotExpired() {
             // arrange
-            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
-            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
 
             // act
-            CouponStatus result = issuedCoupon.status();
+            CouponStatus result = userCoupon.status();
 
             // assert
             assertThat(result).isEqualTo(CouponStatus.AVAILABLE);
@@ -145,15 +145,15 @@ class IssuedCouponTest {
         @Test
         void returnsExpired_whenCouponIsExpired() throws Exception {
             // arrange
-            CouponTemplate template = CouponTemplate.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
-            IssuedCoupon issuedCoupon = IssuedCoupon.of(template, 1L);
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
 
-            java.lang.reflect.Field field = IssuedCoupon.class.getDeclaredField("expiredAt");
+            java.lang.reflect.Field field = UserCoupon.class.getDeclaredField("expiredAt");
             field.setAccessible(true);
-            field.set(issuedCoupon, ZonedDateTime.now().minusDays(1));
+            field.set(userCoupon, ZonedDateTime.now().minusDays(1));
 
             // act
-            CouponStatus result = issuedCoupon.status();
+            CouponStatus result = userCoupon.status();
 
             // assert
             assertThat(result).isEqualTo(CouponStatus.EXPIRED);

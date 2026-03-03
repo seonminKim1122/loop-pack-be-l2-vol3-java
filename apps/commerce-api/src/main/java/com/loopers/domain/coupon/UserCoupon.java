@@ -12,7 +12,7 @@ import java.time.ZonedDateTime;
 @Entity
 @Table(name ="ISSUED_COUPON")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class IssuedCoupon extends BaseEntity {
+public class UserCoupon extends BaseEntity {
 
     @Column(name = "user_id")
     private Long userId;
@@ -37,7 +37,7 @@ public class IssuedCoupon extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private CouponStatus status;
 
-    private IssuedCoupon(Long userId, Long couponTemplateId, String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
+    private UserCoupon(Long userId, Long couponTemplateId, String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
         this.userId = userId;
         this.couponTemplateId = couponTemplateId;
         this.name = name;
@@ -47,25 +47,25 @@ public class IssuedCoupon extends BaseEntity {
         this.status = CouponStatus.AVAILABLE;
     }
 
-    public static IssuedCoupon of(CouponTemplate couponTemplate, Long userId) {
-        if (couponTemplate == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 템플릿은 필수입니다.");
+    public static UserCoupon of(Coupon coupon, Long userId) {
+        if (coupon == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰은 필수입니다.");
         }
 
         if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자ID는 필수입니다.");
         }
 
-        if (couponTemplate.isExpired()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰 템플릿입니다.");
+        if (coupon.isExpired()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.");
         }
 
-        return new IssuedCoupon(userId,
-                couponTemplate.getId(),
-                couponTemplate.name(),
-                couponTemplate.couponType(),
-                couponTemplate.value(),
-                couponTemplate.expiredAt());
+        return new UserCoupon(userId,
+                coupon.getId(),
+                coupon.name(),
+                coupon.couponType(),
+                coupon.value(),
+                coupon.expiredAt());
     }
 
     public String name() {
@@ -90,5 +90,9 @@ public class IssuedCoupon extends BaseEntity {
 
     public long calculateDiscount(long amount) {
         return couponType.calculate(amount, value);
+    }
+
+    public void use() {
+        status = CouponStatus.USED;
     }
 }

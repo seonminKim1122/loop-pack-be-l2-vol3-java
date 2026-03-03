@@ -12,7 +12,7 @@ import java.time.ZonedDateTime;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "COUPON_TEMPLATE")
-public class CouponTemplate extends BaseEntity {
+public class Coupon extends BaseEntity {
 
     @Column(name = "name")
     private String name;
@@ -27,14 +27,14 @@ public class CouponTemplate extends BaseEntity {
     @Column(name = "expired_at")
     private ZonedDateTime expiredAt;
 
-    private CouponTemplate(String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
+    private Coupon(String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
         this.name = name;
         this.couponType = couponType;
         this.value = value;
         this.expiredAt = expiredAt;
     }
 
-    public static CouponTemplate of(String name, String type, int value, ZonedDateTime expiredAt) {
+    public static Coupon of(String name, String type, int value, ZonedDateTime expiredAt) {
         if (!CouponType.isValid(type)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 쿠폰 타입입니다.");
         }
@@ -47,7 +47,7 @@ public class CouponTemplate extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "정률 할인일 때 할인율이 100퍼센트를 초과할 수 없습니다.");
         }
 
-        return new CouponTemplate(name, couponType, value, expiredAt);
+        return new Coupon(name, couponType, value, expiredAt);
     }
 
     public void update(String name, int value, ZonedDateTime expiredAt) {
