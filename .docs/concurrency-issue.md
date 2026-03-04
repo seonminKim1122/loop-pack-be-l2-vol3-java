@@ -2,16 +2,16 @@
 
 ## 이슈 목록
 
-| # | 대상 | 유형 | 상태 |
-|---|------|------|------|
-| 1 | `OrderFacade.createOrder` — 재고 차감 | Check-Then-Act | ✅ 토론 완료 |
-| 2 | `LikeFacade.like/unlike` — 좋아요 카운트 | Lost Update | ✅ 토론 완료 |
-| 3 | `LikeFacade.like/unlike` — 좋아요 중복/누락 | Check-Then-Act | ✅ 토론 완료 |
-| 4 | `IssuedCoupon.use()` — 쿠폰 이중 사용 | Check-Then-Act | ✅ 토론 완료 |
-| 5 | `BrandFacade.delete` — 브랜드 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ 토론 완료 |
-| 6 | `UserFacade.signup` — 중복 loginId 가입 | Check-Then-Act | ✅ 토론 완료 |
-| 7 | `BrandFacade.create/update` — 브랜드명 중복 | Check-Then-Act | ✅ 토론 완료 |
-| 8 | `ProductFacade.delete` — 상품 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ 토론 완료 |
+| # | 대상 | 유형 | 토론 | 구현 |
+|---|------|------|------|------|
+| 1 | `OrderFacade.createOrder` — 재고 차감 | Check-Then-Act | ✅ | ⬜ |
+| 2 | `LikeFacade.like/unlike` — 좋아요 카운트 | Lost Update | ✅ | ⬜ |
+| 3 | `LikeFacade.like/unlike` — 좋아요 중복/누락 | Check-Then-Act | ✅ | ⬜ |
+| 4 | `IssuedCoupon.use()` — 쿠폰 이중 사용 | Check-Then-Act | ✅ | ⬜ |
+| 5 | `BrandFacade.delete` — 브랜드 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ | ⬜ |
+| 6 | `UserFacade.signup` — 중복 loginId 가입 | Check-Then-Act | ✅ | ✅ |
+| 7 | `BrandFacade.create/update` — 브랜드명 중복 | Check-Then-Act | ✅ | ⬜ |
+| 8 | `ProductFacade.delete` — 상품 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ | ⬜ |
 
 ---
 

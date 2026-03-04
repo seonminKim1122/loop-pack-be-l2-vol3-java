@@ -2,8 +2,11 @@ package com.loopers.infrastructure.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +26,11 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public void save(Brand brand) {
-        jpaRepository.save(brand);
+        try {
+            jpaRepository.saveAndFlush(brand);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "중복된 이름의 브랜드가 존재합니다.");
+        }
     }
 
     @Override
