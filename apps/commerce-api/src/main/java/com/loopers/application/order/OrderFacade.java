@@ -41,7 +41,7 @@ public class OrderFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
 
         List<Long> productIds = orderCommand.items().stream().map(OrderCommand.Item::productId).toList();
-        List<Product> products = productRepository.findAllByIdIn(productIds);
+        List<Product> products = productRepository.findAllByIdInWithLock(productIds);
 
         Set<Long> foundIds = products.stream().map(Product::getId).collect(Collectors.toSet());
         boolean hasNotFound = productIds.stream().anyMatch(id -> !foundIds.contains(id));

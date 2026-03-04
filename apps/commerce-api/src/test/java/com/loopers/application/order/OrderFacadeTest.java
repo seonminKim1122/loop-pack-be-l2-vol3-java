@@ -65,8 +65,8 @@ class OrderFacadeTest {
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
-            when(brandRepository.findAllByIdIn(any())).thenReturn(List.of(brand));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
+            when(brandRepository.findAllByIdInWithLock(any())).thenReturn(List.of(brand));
             when(orderRepository.save(any())).thenReturn(1L);
 
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 3)), null);
@@ -104,7 +104,7 @@ class OrderFacadeTest {
             Long userId = 1L;
             User user = mock(User.class);
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdIn(List.of(999L))).thenReturn(List.of());
+            when(productRepository.findAllByIdInWithLock(List.of(999L))).thenReturn(List.of());
 
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(999L, 1)), null);
 
@@ -128,7 +128,7 @@ class OrderFacadeTest {
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(2), Price.from(150000), 1L);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
 
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 5)), null);
 
@@ -164,8 +164,8 @@ class OrderFacadeTest {
             when(userCoupon.calculateDiscount(100000L)).thenReturn(10000L); // 10% 할인
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
-            when(brandRepository.findAllByIdIn(any())).thenReturn(List.of(brand));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
+            when(brandRepository.findAllByIdInWithLock(any())).thenReturn(List.of(brand));
             when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
             when(orderRepository.save(any())).thenAnswer(invocation -> {
                 Order order = invocation.getArgument(0);
@@ -195,7 +195,7 @@ class OrderFacadeTest {
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(100000), 0L);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
             when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.empty());
 
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 1)), userCouponId);
@@ -225,7 +225,7 @@ class OrderFacadeTest {
             when(userCoupon.userId()).thenReturn(otherUserId);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
             when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
 
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 1)), userCouponId);
@@ -382,7 +382,7 @@ class OrderFacadeTest {
             when(order.userId()).thenReturn(userId);
 
             when(orderRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(order), 0, 20, 1));
-            when(userRepository.findAllByIdIn(Set.of(userId))).thenReturn(List.of(user));
+            when(userRepository.findAllByIdInWithLock(Set.of(userId))).thenReturn(List.of(user));
 
             // act
             PageResponse<OrderAdminSummary> result = orderFacade.findAllOrders(pageRequest);
