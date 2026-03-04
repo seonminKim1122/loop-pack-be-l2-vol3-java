@@ -30,6 +30,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -209,35 +210,7 @@ class OrderFacadeTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
-        @DisplayName("본인 소유가 아닌 쿠폰을 사용하면, CoreException 이 발생한다.")
-        @Test
-        void throwsCoreException_whenCouponNotOwnedByUser() {
-            // arrange
-            Long userId = 1L;
-            Long otherUserId = 2L;
-            Long productId = 0L;
-            Long userCouponId = 10L;
 
-            User user = mock(User.class);
-            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(100000), 0L);
-
-            UserCoupon userCoupon = mock(UserCoupon.class);
-            when(userCoupon.userId()).thenReturn(otherUserId);
-
-            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
-            when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
-
-            OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 1)), userCouponId);
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () ->
-                orderFacade.createOrder(userId, command)
-            );
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
-        }
     }
 
     @DisplayName("단일 주문 상세 조회 시, ")

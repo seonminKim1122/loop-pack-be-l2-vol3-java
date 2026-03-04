@@ -48,6 +48,10 @@ public class OrderItem extends BaseEntity {
         return unitPrice;
     }
 
+    public long subtotal() {
+        return (long) unitPrice * quantity;
+    }
+
     public Integer quantity() {
         return quantity;
     }

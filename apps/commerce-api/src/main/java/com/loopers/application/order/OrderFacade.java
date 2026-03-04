@@ -66,10 +66,6 @@ public class OrderFacade {
         if (userCouponId != null) {
             userCoupon = userCouponRepository.findById(userCouponId)
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
-
-            if (!userCoupon.userId().equals(userId)) {
-                throw new CoreException(ErrorType.FORBIDDEN, "본인의 쿠폰만 사용할 수 있습니다.");
-            }
         }
 
         // 재고 차감
@@ -82,9 +78,9 @@ public class OrderFacade {
         long discountAmount = 0L;
         if (userCoupon != null) {
             long originalAmount = orderItems.stream()
-                    .mapToLong(item -> (long) item.unitPrice() * item.quantity())
+                    .mapToLong(OrderItem::subtotal)
                     .sum();
-            userCoupon.use();
+            userCoupon.use(userId);
             discountAmount = userCoupon.calculateDiscount(originalAmount);
             try {
                 userCouponRepository.save(userCoupon);

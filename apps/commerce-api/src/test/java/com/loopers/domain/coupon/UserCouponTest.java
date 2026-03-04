@@ -135,10 +135,25 @@ class UserCouponTest {
             UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
 
             // act
-            userCoupon.use();
+            userCoupon.use(1L);
 
             // assert
             assertThat(userCoupon.status()).isEqualTo(CouponStatus.USED);
+        }
+
+        @DisplayName("본인 소유가 아닌 쿠폰을 사용하면, FORBIDDEN 예외가 발생한다.")
+        @Test
+        void throwsForbidden_whenNotOwner() {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> userCoupon.use(999L));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
+            assertThat(result.getCustomMessage()).isEqualTo("본인의 쿠폰만 사용할 수 있습니다.");
         }
 
         @DisplayName("이미 사용된 쿠폰을 사용하면, BAD_REQUEST 예외가 발생한다.")
@@ -147,10 +162,10 @@ class UserCouponTest {
             // arrange
             Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
             UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
-            userCoupon.use();
+            userCoupon.use(1L);
 
             // act
-            CoreException result = assertThrows(CoreException.class, userCoupon::use);
+            CoreException result = assertThrows(CoreException.class, () -> userCoupon.use(1L));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -169,7 +184,7 @@ class UserCouponTest {
             field.set(userCoupon, ZonedDateTime.now().minusDays(1));
 
             // act
-            CoreException result = assertThrows(CoreException.class, userCoupon::use);
+            CoreException result = assertThrows(CoreException.class, () -> userCoupon.use(1L));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
