@@ -66,7 +66,7 @@ class OrderFacadeTest {
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
-            when(brandRepository.findAllByIdInWithLock(any())).thenReturn(List.of(brand));
+            when(brandRepository.findAllByIdIn(any())).thenReturn(List.of(brand));
             when(orderRepository.save(any())).thenReturn(1L);
 
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 3)), null);
@@ -165,7 +165,7 @@ class OrderFacadeTest {
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
-            when(brandRepository.findAllByIdInWithLock(any())).thenReturn(List.of(brand));
+            when(brandRepository.findAllByIdIn(any())).thenReturn(List.of(brand));
             when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
             when(orderRepository.save(any())).thenAnswer(invocation -> {
                 Order order = invocation.getArgument(0);
@@ -382,7 +382,7 @@ class OrderFacadeTest {
             when(order.userId()).thenReturn(userId);
 
             when(orderRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(order), 0, 20, 1));
-            when(userRepository.findAllByIdInWithLock(Set.of(userId))).thenReturn(List.of(user));
+            when(userRepository.findAllByIdIn(Set.of(userId))).thenReturn(List.of(user));
 
             // act
             PageResponse<OrderAdminSummary> result = orderFacade.findAllOrders(pageRequest);

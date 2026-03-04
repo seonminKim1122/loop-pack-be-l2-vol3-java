@@ -1,6 +1,8 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.UserCoupon;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
@@ -10,6 +12,8 @@ import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.LoginId;
 import com.loopers.domain.user.vo.Name;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.coupon.CouponJpaRepository;
+import com.loopers.infrastructure.coupon.UserCouponJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.support.error.CoreException;
@@ -23,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -45,6 +50,12 @@ class OrderFacadeConcurrencyTest {
 
     @Autowired
     private ProductJpaRepository productJpaRepository;
+
+    @Autowired
+    private CouponJpaRepository couponJpaRepository;
+
+    @Autowired
+    private UserCouponJpaRepository userCouponJpaRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -119,5 +130,51 @@ class OrderFacadeConcurrencyTest {
 
         Product product = productJpaRepository.findById(productId).orElseThrow();
         assertThat(product.stock().value()).isEqualTo(100 - threadCount * quantityPerThread);
+    }
+
+    @DisplayName("동일한 쿠폰으로 동시에 2건 주문하면, 1건만 성공하고 1건은 실패해야 한다.")
+    @Test
+    void createOrder_withSameCoupon_concurrently_onlyOneSucceeds() throws InterruptedException {
+        // arrange
+        Coupon coupon = couponJpaRepository.save(
+                Coupon.of("10% 할인 쿠폰", "RATE", 10, ZonedDateTime.now().plusDays(30))
+        );
+        UserCoupon userCoupon = userCouponJpaRepository.save(UserCoupon.of(coupon, userId));
+        Long userCouponId = userCoupon.getId();
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(threadCount);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failCount = new AtomicInteger(0);
+
+        OrderCommand command = new OrderCommand(
+                List.of(new OrderCommand.Item(productId, 1)),
+                userCouponId
+        );
+
+        // act
+        for (int i = 0; i < threadCount; i++) {
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    orderFacade.createOrder(userId, command);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failCount.incrementAndGet();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        startLatch.countDown();
+        doneLatch.await();
+        executor.shutdown();
+
+        // assert
+        assertThat(successCount.get()).isEqualTo(1);
+        assertThat(failCount.get()).isEqualTo(1);
     }
 }
