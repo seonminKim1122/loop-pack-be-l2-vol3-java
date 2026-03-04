@@ -37,6 +37,9 @@ public class UserCoupon extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private CouponStatus status;
 
+    @Version
+    private Long version;
+
     private UserCoupon(Long userId, Long couponTemplateId, String name, CouponType couponType, int value, ZonedDateTime expiredAt) {
         this.userId = userId;
         this.couponTemplateId = couponTemplateId;
@@ -68,6 +71,10 @@ public class UserCoupon extends BaseEntity {
                 coupon.expiredAt());
     }
 
+    public Long userId() {
+        return userId;
+    }
+
     public String name() {
         return name;
     }
@@ -93,6 +100,12 @@ public class UserCoupon extends BaseEntity {
     }
 
     public void use() {
+        if (status == CouponStatus.USED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.");
+        }
+        if (status() == CouponStatus.EXPIRED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.");
+        }
         status = CouponStatus.USED;
     }
 }

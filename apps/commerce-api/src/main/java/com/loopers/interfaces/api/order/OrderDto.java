@@ -8,7 +8,7 @@ import java.util.List;
 
 public class OrderDto {
 
-    public static record CreateOrderRequest(List<OrderItem> items) {
+    public static record CreateOrderRequest(List<OrderItem> items, Long couponId) {
         public static record OrderItem(Long productId, Integer quantity) {
 
         }

@@ -123,6 +123,60 @@ class UserCouponTest {
         }
     }
 
+    @DisplayName("use() 를 호출할 때, ")
+    @Nested
+    class Use {
+
+        @DisplayName("AVAILABLE 상태의 쿠폰은 정상적으로 사용된다.")
+        @Test
+        void usesSuccessfully_whenStatusIsAvailable() {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+
+            // act
+            userCoupon.use();
+
+            // assert
+            assertThat(userCoupon.status()).isEqualTo(CouponStatus.USED);
+        }
+
+        @DisplayName("이미 사용된 쿠폰을 사용하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsUsed() {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+            userCoupon.use();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, userCoupon::use);
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("이미 사용된 쿠폰입니다.");
+        }
+
+        @DisplayName("만료된 쿠폰을 사용하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsExpired() throws Exception {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+
+            java.lang.reflect.Field field = UserCoupon.class.getDeclaredField("expiredAt");
+            field.setAccessible(true);
+            field.set(userCoupon, ZonedDateTime.now().minusDays(1));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, userCoupon::use);
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("만료된 쿠폰입니다.");
+        }
+    }
+
     @DisplayName("status() 를 호출할 때, ")
     @Nested
     class Status {

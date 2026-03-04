@@ -2,6 +2,8 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.coupon.UserCoupon;
+import com.loopers.domain.coupon.UserCouponRepository;
 import com.loopers.domain.order.*;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -29,6 +31,7 @@ public class OrderFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final OrderRepository orderRepository;
+    private final UserCouponRepository userCouponRepository;
     private final StockPolicy stockPolicy;
     private final OrderAssembler orderAssembler;
 
@@ -56,6 +59,18 @@ public class OrderFacade {
         List<OrderLine> orderLines = orderCommand.items().stream().map(item -> new OrderLine(item.productId(), item.quantity())).toList();
         stockPolicy.validate(productMap, orderLines);
 
+        // 쿠폰 존재 및 소유권 검증
+        Long userCouponId = orderCommand.userCouponId();
+        UserCoupon userCoupon = null;
+        if (userCouponId != null) {
+            userCoupon = userCouponRepository.findById(userCouponId)
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
+
+            if (!userCoupon.userId().equals(userId)) {
+                throw new CoreException(ErrorType.FORBIDDEN, "본인의 쿠폰만 사용할 수 있습니다.");
+            }
+        }
+
         // 재고 차감
         orderCommand.items().forEach(item ->
                 productMap.get(item.productId()).decreaseStock(item.quantity())
@@ -63,7 +78,17 @@ public class OrderFacade {
 
         List<OrderItem> orderItems = orderAssembler.toOrderItems(orderCommand, productMap, brandMap);
 
-        Order order = Order.of(user.getId(), orderItems);
+        long discountAmount = 0L;
+        if (userCoupon != null) {
+            long originalAmount = orderItems.stream()
+                    .mapToLong(item -> (long) item.unitPrice() * item.quantity())
+                    .sum();
+            userCoupon.use();
+            discountAmount = userCoupon.calculateDiscount(originalAmount);
+            userCouponRepository.save(userCoupon);
+        }
+
+        Order order = Order.of(user.getId(), orderItems, userCouponId, discountAmount);
         return orderRepository.save(order);
     }
 

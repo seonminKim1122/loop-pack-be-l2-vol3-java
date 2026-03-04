@@ -33,7 +33,8 @@ public class OrderController {
         OrderCommand orderCommand = new OrderCommand(
                 request.items().stream()
                         .map(item -> new OrderCommand.Item(item.productId(), item.quantity()))
-                        .toList()
+                        .toList(),
+                request.couponId()
         );
 
         Long orderId = orderFacade.createOrder(user.id(), orderCommand);
