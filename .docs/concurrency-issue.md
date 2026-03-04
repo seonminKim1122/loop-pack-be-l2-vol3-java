@@ -4,13 +4,13 @@
 
 | # | 대상 | 유형 | 토론 | 구현 |
 |---|------|------|------|------|
-| 1 | `OrderFacade.createOrder` — 재고 차감 | Check-Then-Act | ✅ | ⬜ |
+| 1 | `OrderFacade.createOrder` — 재고 차감 | Check-Then-Act | ✅ | ✅ |
 | 2 | `LikeFacade.like/unlike` — 좋아요 카운트 | Lost Update | ✅ | ⬜ |
 | 3 | `LikeFacade.like/unlike` — 좋아요 중복/누락 | Check-Then-Act | ✅ | ⬜ |
 | 4 | `IssuedCoupon.use()` — 쿠폰 이중 사용 | Check-Then-Act | ✅ | ⬜ |
 | 5 | `BrandFacade.delete` — 브랜드 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ | ⬜ |
 | 6 | `UserFacade.signup` — 중복 loginId 가입 | Check-Then-Act | ✅ | ✅ |
-| 7 | `BrandFacade.create/update` — 브랜드명 중복 | Check-Then-Act | ✅ | ⬜ |
+| 7 | `BrandFacade.create/update` — 브랜드명 중복 | Check-Then-Act | ✅ | ✅ |
 | 8 | `ProductFacade.delete` — 상품 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ | ⬜ |
 
 ---
@@ -485,24 +485,75 @@ UPDATE PRODUCT SET stock = stock - ? WHERE id = ? AND stock >= ?
 
 락 획득 없이 DB 자체의 원자성에 의존. UPDATE 결과 affected rows가 0이면 재고 부족으로 판단해 실패 처리
 
+### 방안 D — CAS (Compare-And-Swap)
+
+도메인 레이어에서 검증 + 새 재고값 계산 후, DB에 "내가 읽은 값과 같으면 바꿔라"만 요청
+
+```java
+// Application Layer
+Product product = productRepository.findById(id);
+stockPolicy.validate(product, quantity);              // 도메인 검증 ✅
+int newStock = product.stock().value() - quantity;    // 도메인 계산 ✅
+
+// DB에는 원자적 비교만 요청
+int updated = productRepository.compareAndSwapStock(id, currentStock, newStock);
+if (updated == 0) throw new StockConflictException(); // 충돌 → 재시도
+```
+
+```sql
+UPDATE product SET stock = :newStock WHERE id = :id AND stock = :currentStock
+-- 비즈니스 규칙 없음, 단순히 "값이 같은지"만 확인
+```
+
+**방안 C와의 차이**
+
+| | 방안 C (Atomic UPDATE) | 방안 D (CAS) |
+|---|---|---|
+| 비즈니스 규칙 위치 | SQL (`stock >= ?`) | 도메인 레이어 |
+| DB가 하는 일 | 검증 + 차감 | 단순 값 비교 후 교체 |
+| 도메인 로직 유지 | ❌ | ✅ |
+
+**충돌 처리 흐름**
+
+```
+CAS 실패 (0 rows) → StockConflictException → 재시도
+  → product 재조회 (최신 stock)
+  → stockPolicy.validate() 재실행
+    → 재고 부족 → CoreException("재고가 부족합니다.") → 즉시 실패
+    → 재고 충분 → CAS 재시도
+```
+
+재시도 예외(`StockConflictException`)와 재고 부족 예외(`CoreException`)를 분리해 재시도 대상을 명확히 함
+
 ---
 
 ## 3. 트레이드오프 및 선택
 
 ### 방안별 트레이드오프
 
-| | 방안 A (비관적 락) | 방안 B (낙관적 락) | 방안 C (원자적 UPDATE) |
-|---|---|---|---|
-| 동시성 보장 | ✅ 강함 | ✅ 감지 후 처리 | ✅ DB 원자성 |
-| 성능 | ❌ 락 경합으로 처리량 저하 | ✅ 충돌 없으면 빠름 | ✅ 락 없음 |
-| 도메인 로직 위치 | ✅ 도메인 레이어 유지 | ✅ 도메인 레이어 유지 | ❌ 비즈니스 규칙이 SQL로 이탈 |
-| 추가 구현 | 낮음 | `@Version` 컬럼 추가, 재시도 로직 필요 | affected rows 판단 로직 필요 |
+| | 방안 A (비관적 락) | 방안 B (낙관적 락) | 방안 C (원자적 UPDATE) | 방안 D (CAS) |
+|---|---|---|---|---|
+| 동시성 보장 | ✅ 강함 | ✅ 감지 후 처리 | ✅ DB 원자성 | ✅ DB 원자성 |
+| 성능 | ❌ 락 경합 | ✅ 충돌 없으면 빠름 | ✅ 락 없음 | ✅ 락 없음 |
+| 도메인 로직 위치 | ✅ 도메인 유지 | ✅ 도메인 유지 | ❌ SQL로 이탈 | ✅ 도메인 유지 |
+| 추가 구현 | 낮음 | `@Version`, 재시도 필요 | affected rows 판단 | CAS 쿼리, 재시도 필요 |
+| 커넥션 점유 | ❌ 락 대기 중 점유 | ✅ 없음 | ✅ 없음 | ✅ 없음 |
 
 ### 방안 C를 선택하지 않은 이유
 
 - "재고 부족 시 주문 불가"와 같은 비즈니스 규칙이 SQL WHERE절로 내려가 도메인 레이어의 응집도가 떨어짐
 - `Product.decreaseStock()`에 캡슐화된 재고 검증 로직이 의미를 잃게 됨
-- affected rows 기반의 성패 판단이 도메인 의미를 흐림
+
+### 방안 B (낙관적 락)와 방안 D (CAS)의 차이
+
+| | 방안 B (낙관적 락 `@Version`) | 방안 D (CAS) |
+|---|---|---|
+| 비교 대상 | version (기술적 값) | stock (비즈니스 값) |
+| 충돌 조건 | **어떤 필드든** 변경 시 | **stock이** 변경됐을 때만 |
+| 상품명만 수정된 경우 | version 증가 → 재고 차감 충돌 ❌ | stock 그대로 → 재고 차감 성공 ✅ |
+| 구현 | JPA 자동 처리 | 직접 쿼리 작성 |
+
+CAS는 낙관적 락보다 **더 세밀한 충돌 감지** — 재고와 무관한 변경은 충돌로 처리하지 않음
 
 ### 최종 선택 — 방안 A (비관적 락)
 
@@ -515,60 +566,3 @@ UPDATE PRODUCT SET stock = stock - ? WHERE id = ? AND stock >= ?
 **감수할 트레이드오프**
 - 동일 상품에 주문이 몰리는 상황에서 락 경합으로 처리량 저하 가능
 - 락 대기 중에도 DB 커넥션을 점유하므로, 커넥션 풀이 소진되면 주문 외 다른 API에도 영향을 줄 수 있음
-
-### 비관적 락의 커넥션 점유 문제와 대안
-
-DB 비관적 락은 트랜잭션 안에서 락을 잡기 때문에, 락 대기 시간 동안 DB 커넥션을 점유한다.
-커넥션 풀은 서비스 전체가 공유하는 자원이므로, 주문이 몰려 커넥션이 고갈되면 상품 조회 등 무관한 API도 함께 영향을 받는다.
-
-```
-커넥션 풀 (10개)
-├── 주문 API (락 대기 중) ← 커넥션 점유
-├── 주문 API (락 대기 중) ← 커넥션 점유
-├── ...
-└── 상품 조회 API → 커넥션 없음 → 실패 ❌
-```
-
-**대안 검토 — 애플리케이션 레벨 락 (synchronized / ReentrantLock)**
-
-락 획득을 DB 트랜잭션 바깥에서 처리해 커넥션 점유 문제를 해결할 수 있다.
-
-```
-JVM 락 획득 (커넥션 점유 전, 여기서 대기)
-  → DB 커넥션 점유
-  → SELECT + 검증 + 차감
-  → 커밋
-DB 커넥션 반환 → JVM 락 해제
-```
-
-단, `synchronized`나 `ReentrantLock`을 메서드 단위로 걸면 **주문 행위 전체**를 직렬화하는 것이므로, 서로 다른 상품을 주문하는 요청끼리도 불필요하게 대기가 생긴다.
-
-```
-T1: 상품 A 주문 → 락 점유
-T2: 상품 B 주문 → 대기 ← A와 B는 무관한데 기다림
-T3: 상품 A 주문 → 대기
-```
-
-실제로 막아야 하는 건 **같은 상품에 대한 동시 접근**이므로, 올바른 락 단위는 상품 ID다.
-상품 ID 단위로 JVM 락을 관리하려면 `ConcurrentHashMap<Long, Lock>` 구조가 필요하고, 사용이 끝난 락 객체 정리 등 구현 복잡도가 높아진다.
-
-**Redis 분산 락이 유효한 이유**
-
-Redis는 `product:lock:{productId}` 키 하나로 상품 단위 락을 자연스럽게 표현할 수 있어,
-JVM 락의 복잡한 관리 없이 올바른 락 단위를 구현할 수 있다.
-또한 멀티 인스턴스 환경으로 확장 시 인스턴스 간 공유 락으로도 그대로 사용 가능하다.
-
-> 현 시점(단일 인스턴스, 현재 트래픽 수준)에서는 비관적 락으로 시작하고,
-> 커넥션 풀 고갈이 실제로 관측될 시점에 Redis 분산 락 전환을 검토한다.
-
----
-
-## 참고 — IN절 + FOR UPDATE의 락 순서
-
-`SELECT ... WHERE id IN (3, 1, 2) FOR UPDATE` 실행 시,
-MySQL InnoDB는 IN절에 넘긴 순서가 아닌 **PK 인덱스 오름차순**으로 행 락을 획득함
-
-따라서:
-- 애플리케이션에서 ID 순서를 다르게 넘겨도 DB는 동일한 순서로 락을 걸기 때문에, **단일 IN절 쿼리에서 순서에 의한 데드락은 발생하지 않음**
-- `A→B / B→A` 순환 대기 데드락은 상품을 **개별 쿼리로 하나씩** 잠글 때 발생하는 시나리오
-- 단일 IN절에 비관적 락을 적용할 경우 데드락보다는 **락 경합에 의한 처리량 저하**가 더 현실적인 고민

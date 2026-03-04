@@ -28,4 +28,12 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     List<Product> findAllByIdInWithLock(@Param("ids") List<Long> ids);
 
     Page<Product> findAllByBrandId(Long brandId, Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Product p SET p.likeCount = p.likeCount + 1 WHERE p.id = :productId")
+    void increaseLikeCount(@Param("productId") Long productId);
+
+    @Modifying
+    @Query("UPDATE Product p SET p.likeCount = p.likeCount - 1 WHERE p.id = :productId AND p.likeCount > 0")
+    void decreaseLikeCount(@Param("productId") Long productId);
 }

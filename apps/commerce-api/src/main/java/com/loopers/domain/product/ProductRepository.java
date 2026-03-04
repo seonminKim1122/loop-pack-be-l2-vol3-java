@@ -27,4 +27,8 @@ public interface ProductRepository {
     List<Product> findAllByIdInWithLock(List<Long> ids);
 
     PageResponse<Product> findAllByBrandId(Long brandId, Pageable pageable);
+
+    void increaseLikeCount(Long productId);
+
+    void decreaseLikeCount(Long productId);
 }

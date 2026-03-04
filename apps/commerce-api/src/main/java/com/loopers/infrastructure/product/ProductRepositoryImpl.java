@@ -67,4 +67,13 @@ public class ProductRepositoryImpl implements ProductRepository {
         return PageResponse.from(jpaRepository.findAllByBrandId(brandId, pageable));
     }
 
+    @Override
+    public void increaseLikeCount(Long productId) {
+        jpaRepository.increaseLikeCount(productId);
+    }
+
+    @Override
+    public void decreaseLikeCount(Long productId) {
+        jpaRepository.decreaseLikeCount(productId);
+    }
 }
