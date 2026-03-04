@@ -13,7 +13,7 @@ public class LoginId {
 
     private static final Pattern LOGIN_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]{6,20}$");
 
-    @Column(name = "login_id")
+    @Column(name = "login_id", unique = true)
     private String value;
 
     protected LoginId() {}

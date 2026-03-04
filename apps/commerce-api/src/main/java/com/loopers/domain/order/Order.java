@@ -15,27 +15,43 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Entity
-@Table(name = "ORDERS")
+@Table(name = "orders")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseEntity {
 
     @Column(name = "user_id")
     private Long userId;
 
-    @Column(name = "total_price")
-    private Long totalPrice;
+    @Column(name = "issued_coupon_id")
+    private Long issuedCouponId;
+
+    @Column(name = "original_amount")
+    private Long originalAmount;
+
+    @Column(name = "discount_amount")
+    private Long discountAmount;
+
+    @Column(name = "payment_amount")
+    private Long paymentAmount;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "order_id")
     private List<OrderItem> items;
 
-    private Order(Long userId, Long totalPrice, List<OrderItem> items) {
+    private Order(Long userId, Long issuedCouponId, long originalAmount, long discountAmount, List<OrderItem> items) {
         this.userId = userId;
-        this.totalPrice = totalPrice;
+        this.issuedCouponId = issuedCouponId;
+        this.originalAmount = originalAmount;
+        this.discountAmount = discountAmount;
+        this.paymentAmount = Math.max(0L, originalAmount - discountAmount);
         this.items = items;
     }
 
     public static Order of(Long userId, List<OrderItem> items) {
+        return of(userId, items, null, 0L);
+    }
+
+    public static Order of(Long userId, List<OrderItem> items, Long issuedCouponId, long discountAmount) {
         if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다.");
         }
@@ -46,15 +62,27 @@ public class Order extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");
         }
 
-        long totalPrice = items.stream()
+        long originalAmount = items.stream()
                 .mapToLong(item -> (long) item.unitPrice() * item.quantity())
                 .sum();
 
-        return new Order(userId, totalPrice, items);
+        return new Order(userId, issuedCouponId, originalAmount, discountAmount, items);
     }
 
-    public Long totalPrice() {
-        return totalPrice;
+    public Long originalAmount() {
+        return originalAmount;
+    }
+
+    public Long discountAmount() {
+        return discountAmount;
+    }
+
+    public Long paymentAmount() {
+        return paymentAmount;
+    }
+
+    public Long issuedCouponId() {
+        return issuedCouponId;
     }
 
     public int itemCount() {

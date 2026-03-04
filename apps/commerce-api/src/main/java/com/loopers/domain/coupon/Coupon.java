@@ -11,7 +11,7 @@ import java.time.ZonedDateTime;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "COUPON_TEMPLATE")
+@Table(name = "coupon")
 public class Coupon extends BaseEntity {
 
     @Column(name = "name")

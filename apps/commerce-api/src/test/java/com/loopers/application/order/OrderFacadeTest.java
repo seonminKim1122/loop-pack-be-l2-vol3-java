@@ -221,7 +221,7 @@ class OrderFacadeTest {
 
             Order order = mock(Order.class);
             when(order.getId()).thenReturn(orderId);
-            when(order.totalPrice()).thenReturn(150000L);
+            when(order.paymentAmount()).thenReturn(150000L);
             when(order.items()).thenReturn(List.of());
             when(order.userId()).thenReturn(userId);
 
@@ -275,7 +275,7 @@ class OrderFacadeTest {
             Order order = mock(Order.class);
             when(order.getId()).thenReturn(1L);
             when(order.getCreatedAt()).thenReturn(ZonedDateTime.now());
-            when(order.totalPrice()).thenReturn(150000L);
+            when(order.paymentAmount()).thenReturn(150000L);
             when(order.itemCount()).thenReturn(1);
             when(order.userId()).thenReturn(userId);
 
@@ -309,7 +309,7 @@ class OrderFacadeTest {
             Order order = mock(Order.class);
             when(order.getId()).thenReturn(1L);
             when(order.getCreatedAt()).thenReturn(ZonedDateTime.now());
-            when(order.totalPrice()).thenReturn(150000L);
+            when(order.paymentAmount()).thenReturn(150000L);
             when(order.itemCount()).thenReturn(2);
 
             when(orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt))
