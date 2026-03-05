@@ -1,312 +1,566 @@
-# 동시성 이슈 분석 및 해결 전략
+# 동시성 이슈 토론 정리
 
-## 이슈 목록
-
-| # | 대상 | 유형 | 토론 | 구현 |
-|---|------|------|------|------|
-| 1 | `OrderFacade.createOrder` — 재고 차감 | Check-Then-Act | ✅ | ✅ |
-| 2 | `LikeFacade.like/unlike` — 좋아요 카운트 | Lost Update | ✅ | ✅ |
-| 3 | `LikeFacade.like/unlike` — 좋아요 중복/누락 | Check-Then-Act | ✅ | ✅ |
-| 4 | `IssuedCoupon.use()` — 쿠폰 이중 사용 | Check-Then-Act | ✅ | ✅ |
-| 5 | `BrandFacade.delete` — 브랜드 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ | ⬜ |
-| 6 | `UserFacade.signup` — 중복 loginId 가입 | Check-Then-Act | ✅ | ✅ |
-| 7 | `BrandFacade.create/update` — 브랜드명 중복 | Check-Then-Act | ✅ | ✅ |
-| 8 | `ProductFacade.delete` — 상품 삭제 카스케이드 | 스냅샷 스탈니스 | ✅ | ⬜ |
+| # | 대상 | 유형 | 선택 방안 | 토론 | 구현 |
+|---|------|------|-----------|------|------|
+| 1 | `OrderFacade.createOrder` — 재고 차감 | Check-Then-Act | 비관적 락 | ✅ | ✅ |
+| 2 | `LikeFacade.like/unlike` — 좋아요 카운트 | Lost Update | Atomic UPDATE | ✅ | ✅ |
+| 3 | `LikeFacade.like/unlike` — 좋아요 중복/누락 | Check-Then-Act | UNIQUE 제약 + Infrastructure 예외 흡수 | ✅ | ✅ |
+| 4 | `UserCoupon.use()` — 쿠폰 이중 사용 | Check-Then-Act | 낙관적 락 + Infrastructure 예외 흡수 | ✅ | ✅ |
+| 6 | `UserFacade.signup` — 중복 loginId | Check-Then-Act | UNIQUE 제약 + Infrastructure 예외 흡수 | ✅ | ✅ |
+| 7 | `BrandFacade.create/update` — 브랜드명 중복 | Check-Then-Act | UNIQUE 제약 + Infrastructure 예외 흡수 | ✅ | ✅ |
 
 ---
 
-## 이슈 2 — 좋아요 카운트 Lost Update
+# 이슈 1 — 재고 차감 방안 분석
 
-**대상 코드**
+## 핵심 문제
 
-```java
-// LikeFacade.like (line 40-43)
-if (!likeRepository.existsByUserIdAndProductId(userId, productId)) {
-    likeRepository.save(Like.of(userId, productId));
-    product.increaseLike();  // Product.likeCount++
-}
+"읽기 → 검증 → 수정"이 단일 원자적 연산이 아니며, 읽은 시점과 쓰는 시점 사이에 다른 트랜잭션이 끼어들 수 있음
 
-// LikeFacade.unlike (line 48-55)
-likeRepository.deleteByUserIdAndProductId(userId, productId);
-product.decreaseLike();  // Product.likeCount--
+```
+SELECT stock=10  →  validate OK  →  메모리에서 -8  →  UPDATE stock=2
+      ↑                                                        ↑
+   읽은 시점                                              쓰는 시점
+      |←————————— 이 사이에 다른 트랜잭션이 끼어들 수 있음 —————————→|
 ```
 
-```java
-// Product.java
-public void increaseLike() { this.likeCount++; }
-public void decreaseLike() { if (this.likeCount > 0) this.likeCount--; }
-```
+갭을 어느 시점에, 어떤 방식으로 막느냐가 4개 방안의 차이
 
-**문제**
+| 방안 | 접근 방식 |
+|---|---|
+| 방안 A — Atomic UPDATE | 읽기/검증/쓰기를 DB 한 문장으로 합쳐 갭 자체를 없앰 |
+| 방안 B — CAS | 갭을 허용하되, 쓰는 시점에 "내가 읽은 값 그대로냐"를 확인 |
+| 방안 C — 낙관적 락 | 갭을 허용하되, 쓰는 시점에 "내가 읽은 이후 변경됐냐"를 감지 |
+| 방안 D — 비관적 락 | 읽는 시점에 잠가서 갭 자체를 없앰 |
 
-같은 상품에 좋아요 요청이 동시에 들어오면, 두 트랜잭션이 동일한 `likeCount`를 읽고 각자 +1한 값을 덮어써서 카운트가 누락됨
+---
 
-| 시점 | T1 | T2 | DB likeCount |
-|------|----|----|-------------|
-| t1 | SELECT likeCount=5 | SELECT likeCount=5 | 5 |
-| t2 | likeCount++ → 6 | likeCount++ → 6 | 5 |
-| t3 | UPDATE likeCount=6, 커밋 | — | 6 |
-| t4 | — | UPDATE likeCount=6, 커밋 | **6** ← 7이어야 함 |
+## 방안 A — Atomic UPDATE
 
-### 최종 선택 — Atomic UPDATE
-
-`likeCount`는 비즈니스 검증 규칙이 없는 단순 집계 카운터이므로, DB 레벨 원자적 UPDATE로 해결한다.
+### 핵심 아이디어
 
 ```sql
-UPDATE product SET like_count = like_count + 1 WHERE id = ?
-UPDATE product SET like_count = like_count - 1 WHERE id = ? AND like_count > 0
+UPDATE product SET stock = stock - ? WHERE id = ? AND stock >= ?
 ```
 
-**재고(이슈 1)와 다른 이유**
+읽기/검증/차감을 DB 한 문장으로 처리. `affected rows`로 성공/실패 판단.
 
-| | 재고 | likeCount |
+### 동시성이 보장되는 이유
+
+UPDATE의 WHERE 절은 항상 **최신 커밋된 값(Current Read)**을 읽기 때문에, SELECT 없이도 정합성이 보장됨.
+
+SELECT와 UPDATE의 읽기 방식이 다름:
+
+| 구문 | 읽기 방식 | 설명 |
 |---|---|---|
-| 비즈니스 규칙 | `stock >= quantity` 검증 필요 | 단순 +1 / -1 |
-| 도메인 로직 위치 | 도메인 레이어 유지 필요 | 집계값, 규칙 없음 |
-| 선택 | 비관적 락 | Atomic UPDATE |
+| `SELECT` (일반) | Snapshot Read | 트랜잭션 시작 시점의 스냅샷 |
+| `UPDATE ... WHERE` | Current Read | 최신 커밋된 값 |
 
-**이슈 3과의 조율**
+### 실패 처리 방식
 
-`like` INSERT 성공 여부에 따라 Atomic UPDATE 호출을 결정한다. (이슈 3 해결 방식과 연계)
+Fail-fast가 아닌 **Collect-all** — 전체 처리 후 실패 목록을 모아서 예외를 던짐. `@Transactional`이 앞서 성공한 UPDATE들도 함께 롤백 처리.
 
 ```java
-// LikeFacade
-boolean inserted = likeRepository.saveIfAbsent(Like.of(userId, productId));
-if (inserted) productRepository.increaseLikeCount(productId);
+List<String> failedItems = new ArrayList<>();
+for (OrderItem item : orderItems) {
+    int affected = productRepository.decreaseStock(item.productId(), item.quantity());
+    if (affected == 0) failedItems.add(item.productName());
+}
+if (!failedItems.isEmpty()) {
+    throw new CoreException("재고 부족: " + failedItems);
+}
 ```
+
+### JPA 구현 시 주의사항
+
+`@Modifying` 쿼리는 호출 즉시 DB에 반영되며, JPA dirty checking의 flush와는 별개로 동작.
+단, **1차 캐시(영속성 컨텍스트)는 갱신되지 않으므로** `clearAutomatically = true` 필수.
+
+```java
+@Modifying(clearAutomatically = true)
+@Query("UPDATE Product p SET p.stock = p.stock - :quantity WHERE p.id = :id AND p.stock >= :quantity")
+int decreaseStock(@Param("id") Long id, @Param("quantity") int quantity);
+```
+
+Collect-all 루프 내에서도 각 UPDATE가 즉시 DB에 반영되므로, 다음 UPDATE는 이전 UPDATE가 반영된 최신 상태를 기준으로 실행됨.
+
+### 트레이드오프
+
+| 장점 | 단점 |
+|---|---|
+| 락 없이 동시성 보장 | 도메인 검증 로직(`StockPolicy`)이 SQL로 이탈 |
+| 구현 단순 | 실패 컨텍스트 손실 (얼마나 부족한지 알 수 없음) |
+| 커넥션 점유 없음 | 실패 상세 조회 시 재조회 값도 신뢰하기 어려움 |
 
 ---
 
-## 이슈 3 — 좋아요 중복/누락 Check-Then-Act
+## 방안 B — CAS (Compare-And-Swap)
 
-**대상 코드**
+### 핵심 아이디어
 
-```java
-// LikeFacade.like (line 40-43)
-if (!likeRepository.existsByUserIdAndProductId(userId, productId)) {  // ← 존재 확인
-    likeRepository.save(Like.of(userId, productId));                  // ← 저장
-    product.increaseLike();
-}
-
-// LikeFacade.unlike (line 48-55)
-if (!likeRepository.existsByUserIdAndProductId(userId, productId)) return;  // ← 존재 확인
-likeRepository.deleteByUserIdAndProductId(userId, productId);               // ← 삭제
-product.decreaseLike();
-```
-
-**문제**
-
-존재 확인과 저장/삭제 사이에 다른 트랜잭션이 끼어들 수 있음
-
-- `like`: 동시 요청 2건이 모두 `existsBy... = false` 통과 → `increaseLike()` 이중 호출 (DB UNIQUE 제약으로 insert는 막히나 카운트는 이미 2 증가)
-- `unlike`: 존재 확인 후 다른 트랜잭션이 먼저 삭제 → `decreaseLike()` 불필요하게 호출
-
-### 최종 선택 — UNIQUE 제약 + Infrastructure 예외 흡수 (멱등 처리)
-
-**없는 데이터에는 락을 걸 수 없다.** 존재하지 않는 행에 비관적/낙관적 락 모두 적용 불가하므로, DB UNIQUE 제약이 유일한 원자적 보호 수단이다.
-
-- `like` (`userId + productId` UNIQUE): INSERT 시도 → 중복이면 `DataIntegrityViolationException` 발생
-  - Application Layer에 인프라 예외가 누출되는 것을 방지하기 위해 **Infrastructure Layer에서 흡수**
-  - 이미 좋아요한 상태 = 멱등(no-op), `false` 반환
-  - 실제 삽입된 경우 `true` 반환 → Application Layer에서 `increaseLikeCount` 호출 여부 결정
+도메인 레이어에서 검증/계산 후, DB엔 "내가 읽은 값과 같으면 바꿔라"만 요청.
 
 ```java
-// JpaLikeRepository (Infrastructure)
-@Override
-public boolean saveIfAbsent(Like like) {
-    try {
-        likeJpaRepository.save(LikeEntity.from(like));
-        return true;
-    } catch (DataIntegrityViolationException e) {
-        return false; // 이미 존재 → 멱등, no-op
-    }
-}
+Product product = productRepository.findById(id);
+stockPolicy.validate(product, quantity);           // 도메인 검증 ✅
+int newStock = product.stock() - quantity;         // 도메인 계산 ✅
+
+int updated = productRepository.compareAndSwapStock(id, currentStock, newStock);
+if (updated == 0) throw new StockConflictException(); // 충돌 → 재시도
 ```
 
-- `unlike`: 삭제된 건수(`int`)로 실제 삭제 여부를 판단해 `decreaseLikeCount` 호출을 결정
-
-```java
-// LikeFacade
-int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
-if (deleted > 0) productRepository.decreaseLikeCount(productId);
+```sql
+UPDATE product SET stock = :newStock WHERE id = :id AND stock = :currentStock
 ```
+
+### Atomic UPDATE와의 차이
+
+| | Atomic UPDATE | CAS |
+|---|---|---|
+| 도메인 검증 위치 | SQL (`stock >= ?`) | 도메인 레이어 |
+| DB가 하는 일 | 검증 + 차감 | 단순 값 비교 후 교체 |
+| 실패 컨텍스트 | 없음 | validate에서 파악 가능 |
+
+### `affected rows == 0` 케이스 구분
+
+CAS 호출 전 `validate()`가 먼저 실행되므로, CAS에 도달했다는 것 자체가 "재고는 충분했다"는 의미.
+따라서 `affected rows == 0`은 **무조건 동시성 충돌**만 의미.
+
+| 예외 | 의미 | 처리 |
+|---|---|---|
+| `StockConflictException` | 일시적 충돌, 재시도 가능 | 재시도 |
+| `CoreException("재고 부족")` | 비즈니스 실패 | 즉시 종료 |
+
+### 재시도 구현 시 주의사항
+
+재시도는 반드시 `@Transactional` 바깥에서 일어나야 함.
+- `StockConflictException` 발생 → 현재 트랜잭션 **rollback-only** 상태
+- 재시도 시 새 트랜잭션에서 최신 stock 재조회 필요
+
+```
+createOrder()                     ← @Retryable, @Transactional 없음
+  └── createOrderTransactional()  ← @Transactional
+        └── CAS 실패 → StockConflictException
+              └── 트랜잭션 롤백 → createOrder()가 재시도 → 새 트랜잭션
+```
+
+### 한계 — Starvation (기아 현상)
+
+충돌이 잦은 환경에서 재고가 충분함에도 계속 다른 트랜잭션에 밀려 재시도 한도 초과 후 주문 실패 가능.
+
+- 재시도 횟수를 늘려도 근본 해결 안 됨 — Thundering Herd 악화 가능
+- 무한 재시도는 스레드/커넥션을 무한 점유 → 서버 안정성 위협
+- **충돌이 드문 환경에서는 효율적, 충돌이 잦은 환경에서는 역효과**
 
 ---
 
-## 이슈 4 — 쿠폰 이중 사용
+## 방안 C — 낙관적 락 (`@Version`)
 
-**대상 코드**
+### 핵심 아이디어
+
+커밋 시점에 version을 비교해 충돌을 감지. JPA가 자동으로 처리.
 
 ```java
-// IssuedCoupon.java
-public CouponStatus status() {
-    if (status == CouponStatus.AVAILABLE && expiredAt.isBefore(ZonedDateTime.now())) {
-        return CouponStatus.EXPIRED;  // DB에 반영 안 됨, 계산만 함
-    }
-    return status;
-}
-
-public void use() {
-    status = CouponStatus.USED;  // 락 없이 상태 변경
+@Entity
+public class Product {
+    @Version
+    private Long version;
 }
 ```
 
-**문제**
+```sql
+UPDATE product SET stock = ?, version = 2 WHERE id = ? AND version = 1
+-- version 불일치 → 0 rows → OptimisticLockException
+```
 
-두 트랜잭션이 동시에 같은 `IssuedCoupon`을 조회하면, 둘 다 `status=AVAILABLE`을 읽고 `use()`를 호출해 쿠폰이 이중으로 사용될 수 있음. `@Version` 등 낙관적 락이 없어 커밋 충돌을 감지하지 못함
+### CAS와의 차이
 
-### 최종 선택 — 낙관적 락 (`@Version`)
+| | CAS | 낙관적 락 |
+|---|---|---|
+| 비교 대상 | stock (비즈니스 값) | version (기술적 값) |
+| 충돌 조건 | stock이 바뀌었을 때만 | 어떤 필드든 바뀌었을 때 |
+| ABA 감지 | ❌ | ✅ |
+| 구현 | 직접 쿼리 작성 | JPA 자동 처리 |
+
+### 과잉 감지 문제
+
+stock과 무관한 필드(상품명 등)가 변경돼도 version이 증가 → 재고 차감 트랜잭션이 불필요하게 충돌로 처리됨.
+
+→ CAS보다 Starvation이 더 쉽게 발생.
+
+### `@OptimisticLock(excluded = true)` 로 완화 가능
+
+```java
+@OptimisticLock(excluded = true)  // 이 필드 변경은 version 증가 안 함
+private String name;
+
+private Integer stock;  // 얘만 version 증가 트리거
+```
+
+단, Hibernate 전용이라 표준 JPA에서 벗어남.
+
+### ABA Problem
+
+ABA Problem = A→B→A로 값이 돌아왔을 때 "변경이 있었는지"를 알 수 없는 현상.
+
+| | ABA 감지 | 재고 차감에서의 의미 |
+|---|---|---|
+| CAS | ❌ 못 감지 | 문제 없음 (재입고 후 차감은 유효한 동작) |
+| 낙관적 락 (`@Version`) | ✅ 감지 | 재입고 후 정상 차감인데 충돌로 처리 → 불필요한 실패 |
+
+재고 차감에서는 **ABA를 감지 안 하는 게 맞는 동작** — CAS가 더 적합한 이유 중 하나.
+
+### 공통 한계 (CAS와 동일)
+
+충돌이 잦은 환경에서 Starvation 발생 가능. 재시도는 반드시 `@Transactional` 바깥에서.
+
+---
+
+## 방안 D — 비관적 락 (Pessimistic Lock)
+
+### 핵심 아이디어
+
+읽는 시점에 `SELECT ... FOR UPDATE`로 행을 잠가, 트랜잭션이 끝날 때까지 다른 트랜잭션이 해당 행을 수정하지 못하게 막음.
+
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+List<Product> findAllByIdIn(List<Long> ids);
+```
+
+```sql
+SELECT * FROM product WHERE id IN (?) FOR UPDATE
+```
+
+### 동시성이 보장되는 이유
+
+FOR UPDATE로 읽는 순간부터 커밋까지 해당 행의 값이 완전히 보장됨.
+
+```
+FOR UPDATE로 읽음
+→ validate() 통과한 stock 값이 커밋까지 그대로 유지
+→ decreaseStock() 결과도 정확히 의도한 대로
+→ 재시도 불필요
+```
+
+### 도메인 로직이 가장 자연스럽게 유지됨
+
+재시도 없고, SQL 변경 없고, `@Version` 없이 `@Lock` 어노테이션 하나로 해결.
+
+```java
+List<Product> products = productRepository.findAllByIdIn(productIds); // FOR UPDATE
+stockPolicy.validate(productMap, orderLines);   // 읽은 값 신뢰 가능
+product.decreaseStock(quantity);                // dirty checking → 커밋 시 UPDATE
+```
+
+### 데드락 위험이 낮은 이유
+
+MySQL InnoDB는 `IN` 절을 처리할 때 **PK 인덱스 오름차순으로 락을 획득**. 여러 트랜잭션이 동일한 순서로 락을 획득하므로 데드락 발생 조건이 성립하지 않음.
+
+단, PK 인덱스로 조회될 때만 순서가 보장됨. 인덱스 없는 컬럼으로 `FOR UPDATE` 시 데드락 위험 존재.
+
+### 없는 상품 ID가 섞여 있는 경우
+
+MySQL은 존재하는 행에만 락을 걸므로, 없는 ID는 락 대상이 아님. `validate()` 단계에서 "존재하지 않는 상품" 예외로 처리되므로 실제로는 문제 없음.
+
+### 트레이드오프
+
+| 장점 | 단점 |
+|---|---|
+| 도메인 로직 변경 없음 | 락 대기 중 커넥션 점유 |
+| 재시도 불필요 | 트래픽 집중 시 락 경합 → 처리량 저하 |
+| Starvation 없음 | 커넥션 풀 고갈 시 전체 서비스 영향 |
+| 구현 단순 | — |
+
+---
+
+## 최종 선택 — 방안 D (비관적 락)
+
+### 선택 기준 — 경합 빈도와 운영 데이터
+
+동시성 전략 선택의 핵심은 **"이 시스템에서 같은 상품에 동시 주문이 얼마나 몰리는가"** 이며, 이는 코드가 아닌 비즈니스 도메인과 운영 데이터로 결정된다.
+
+| 트래픽 | 적합한 방안 |
+|---|---|
+| 일반적 이커머스 수준 | 비관적 락 (단순성, 안정성) |
+| 경합이 어느 정도 발생 | CAS (커넥션 효율) |
+| 극단적 경합 (한정판 선착순 등) | 비관적 락 (Starvation 방지) |
+
+### Atomic UPDATE를 제외한 이유
+
+재고 부족 시 **상품별로 얼마나 부족한지** 사용자에게 알려줘야 하는 요구사항이 있음.
+Atomic UPDATE는 `affected rows == 0` 만으로는 얼마나 부족한지 알 수 없어 이 요구사항을 충족하지 못함.
+
+> 일반 원칙(Atomic > Optimistic > Pessimistic)보다 **도메인 요구사항이 우선**이다.
+
+### CAS를 제외한 이유
+
+CAS(낙관적 접근)의 재시도 횟수는 **경험적 운영 데이터**가 있어야 결정할 수 있음.
+
+```
+"평균 몇 번 충돌하더라" → maxAttempts = 3
+"최악의 경우 몇 번이더라" → maxAttempts = 5
+```
+
+이 데이터 없이 `maxAttempts`를 설정하면:
+```
+재고 충분 + 경합 심함 → 재시도 한도 초과 → 주문 실패
+→ 사용자 입장: "재고 있는데 왜 안 되지?"
+```
+
+반면 비관적 락은 재고가 있으면 주문이 **반드시 성공함을 보장**한다.
+
+### 최종 근거
+
+> 운영 데이터 없이 시작하는 시스템에서 "재고가 있으면 주문은 반드시 성공해야 한다"는 보장이 필요하다면 비관적 락이 맞다.
+> CAS는 운영 데이터가 쌓인 후 경합이 문제가 되는 시점에 전환을 고려한다.
+
+### 감수할 트레이드오프
+
+- 동일 상품에 주문이 몰리는 상황에서 락 경합으로 처리량 저하 가능
+- 락 대기 중에도 DB 커넥션을 점유하므로, 커넥션 풀이 소진되면 주문 외 다른 API에도 영향을 줄 수 있음
+
+---
+
+# 이슈 4 — 쿠폰 이중 사용
+
+## 핵심 문제
+
+두 트랜잭션이 동시에 같은 쿠폰을 조회하면, 둘 다 `status=AVAILABLE`을 읽고 `use()`를 호출해 쿠폰이 이중으로 사용될 수 있음.
+
+## 재고 차감과의 차이
+
+| | 재고 차감 | 쿠폰 사용 |
+|---|---|---|
+| 성공 조건 | 재고 있으면 **모두 순서대로 성공** | **한 건만 성공**, 나머진 즉시 실패 |
+| 충돌 처리 | 대기 후 재처리 | 즉시 실패 |
+| 적합한 방식 | 비관적 락 | 낙관적 락 |
+
+> 충돌 = 즉시 실패가 맞는 동작인 경우에는 낙관적 락이 잘 맞는다.
+
+## 낙관적 락 (`@Version`)
 
 ```java
 @Entity
 public class UserCoupon {
     @Version
     private Long version;
-    // ...
 }
 ```
 
-| 시점 | T1 | T2 | DB |
-|------|----|----|-----|
-| t1 | SELECT version=1, status=AVAILABLE | SELECT version=1, status=AVAILABLE | version=1 |
-| t2 | use() 호출 | use() 호출 | — |
-| t3 | UPDATE SET status=USED, version=2 WHERE id=? AND version=1 → **성공** | — | version=2 |
-| t4 | — | UPDATE SET status=USED, version=2 WHERE id=? AND version=1 → **0건** → OptimisticLockException | version=2 |
+```
+T1: SELECT version=1, status=AVAILABLE → use() → UPDATE WHERE version=1 → 성공, version=2
+T2: SELECT version=1, status=AVAILABLE → use() → UPDATE WHERE version=1 → 0 rows → OptimisticLockingFailureException
+```
 
-**낙관적 락이 적합한 이유**
+T2는 재시도할 필요도 없음. 재시도해도 `status=USED`라 어차피 실패.
 
-> 한 건만 성공하고 나머진 실패해도 되는 동시성 문제에서는 낙관적 락이 잘 맞는다.
-> 충돌 = 즉시 실패이므로 재시도 비용이 없다.
+## 예외 변환 위치 고민
 
-- 쿠폰은 이미 사용됐으면 다른 트랜잭션은 **성공하면 안 됨** → 대기 후 재처리가 아닌 즉시 실패가 맞는 동작
-- 비관적 락(대기 후 재처리)은 **"모두 순서대로 성공해야"** 하는 재고 차감 같은 시나리오에 적합
-- `@Version` 컬럼 추가만으로 JPA가 `WHERE version=?` 조건을 자동 처리
-- `use()`, `status()` 등 **도메인 로직이 그대로 유지**됨 (Atomic UPDATE와의 차별점)
+### 검토한 방안들
 
-**충돌 처리**
+**방안 A — Application Layer**
+```java
+try {
+    userCouponRepository.save(userCoupon);
+} catch (OptimisticLockingFailureException e) {
+    throw new CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.");
+}
+```
+- 인프라 예외가 Application Layer에 누출됨 ❌
+- 향후 다른 UPDATE 연산 추가 시 영향 없음 ✅
 
-`OptimisticLockException`을 GlobalExceptionHandler 또는 Application Layer에서 잡아 "이미 사용된 쿠폰" 에러로 변환
+**방안 B — Infrastructure Layer**
+```java
+public void save(UserCoupon userCoupon) {
+    try {
+        jpaRepository.saveAndFlush(userCoupon);
+    } catch (OptimisticLockingFailureException e) {
+        throw new CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.");
+    }
+}
+```
+- 인프라 예외 누출 없음 ✅
+- `save()`가 `use()` 외 다른 목적으로 쓰이면 메시지 오염 가능 ❌
+
+**CAS — `status` 조건부 UPDATE**
+```sql
+UPDATE user_coupon SET status = 'USED' WHERE id = ? AND status = 'AVAILABLE'
+```
+- 인프라 예외 자체가 없음 ✅
+- `use()` 도메인 로직이 SQL로 이탈 ❌
+
+### `@OptimisticLock(excluded = true)` 가 의미 없는 이유
+
+재고에서 이 옵션이 필요했던 이유는 "stock 외의 필드 변경이 재고 차감에 영향을 주는 것"을 막기 위해서였음.
+`UserCoupon`은 변경에 열려있는 필드가 `status` 하나뿐이므로 제외할 다른 필드가 없어 실질적으로 의미 없음.
+
+## 최종 선택 — 방안 B (Infrastructure Layer)
+
+현재 `UserCoupon`의 변경에 열려있는 필드가 `status` 하나뿐이므로, `save()`가 `use()` 목적으로만 쓰이는 게 보장됨 → 메시지 오염 위험 없음.
+
+- 인프라 예외 누출 없음 ✅
+- 도메인 로직 유지 (`use()` 그대로) ✅
+- `status`만 변경되므로 메시지 오염 위험 없음 ✅
+
+**단, 나중에 `UserCoupon`에 다른 UPDATE 연산이 생기면 재검토 필요.**
+
+`expire()` 같은 연산이 추가되면 `save()`가 여러 목적으로 쓰이게 됨:
+
+```java
+// Infrastructure에서
+} catch (OptimisticLockingFailureException e) {
+    throw new CoreException("이미 사용된 쿠폰입니다."); // ← use()인지 expire()인지 알 수 없음
+}
+```
+
+이 경우 두 가지 선택지:
+
+**방안 A로 전환** — 컨텍스트를 아는 Application Layer에서 각각 처리
+```java
+// use() 호출하는 곳
+} catch (OptimisticLockingFailureException e) {
+    throw new CoreException("이미 사용된 쿠폰입니다.");
+}
+
+// expire() 호출하는 곳
+} catch (OptimisticLockingFailureException e) {
+    throw new CoreException("이미 만료된 쿠폰입니다.");
+}
+```
+
+**CAS로 전환** — 각 연산이 자신의 선행 조건을 SQL에 명시
+```sql
+-- use()
+UPDATE user_coupon SET status = 'USED' WHERE id = ? AND status = 'AVAILABLE'
+-- expire()
+UPDATE user_coupon SET status = 'EXPIRED' WHERE id = ? AND status = 'AVAILABLE'
+```
+`affected rows == 0` = "AVAILABLE이 아니었다"로 의미가 통일되어 메시지 오염 없음.
+단, `use()` 도메인 로직이 SQL로 이탈하는 트레이드오프 존재.
 
 ---
 
-## 이슈 5 — 브랜드 삭제 카스케이드 스냅샷 스탈니스
+# 이슈 2, 3 — 좋아요 카운트 Lost Update & Check-Then-Act
 
-**대상 코드**
+## 이슈 2, 3이 한 쌍인 이유
+
+이슈 3이 "실제로 변경됐냐"를 판단하고, 이슈 2가 "변경됐을 때만 카운트를 업데이트"하는 구조로 연계됨.
 
 ```java
-// BrandFacade.delete (line 62-67)
-List<Long> productIds = productRepository.findAllIdsByBrandId(brandId);  // ① 스냅샷 조회
-likeRepository.deleteAllByProductIdIn(productIds);                       // ② 좋아요 삭제
-productRepository.deleteAllByBrandId(brandId);                           // ③ 상품 삭제
-brandRepository.deleteById(brandId);                                     // ④ 브랜드 삭제
+// like
+boolean inserted = likeRepository.saveIfAbsent(Like.of(userId, productId));
+if (inserted) productRepository.increaseLikeCount(productId);  // 실제 삽입됐을 때만
+
+// unlike
+int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
+if (deleted > 0) productRepository.decreaseLikeCount(productId);  // 실제 삭제됐을 때만
 ```
 
-**문제**
+---
 
-① 이후 ②~③ 사이에 다른 트랜잭션이 해당 브랜드의 상품에 좋아요를 추가하면, ①에서 가져온 `productIds` 스냅샷에는 없는 좋아요가 생겨 삭제되지 않고 남음 → 존재하지 않는 상품을 참조하는 고아 레코드 발생
+## 이슈 2 — 좋아요 카운트 Atomic UPDATE
 
-### 최종 선택 — snapshot 유지 + 고아 레코드 배치 정리
+### 재고 차감과 다른 이유
 
-**브랜드 삭제는 저빈도 관리자 작업**이므로, 고아 발생 윈도우가 극히 짧다. 비관적 락이나 JOIN DELETE를 도입하는 것은 오버엔지니어링이다.
+| | 재고 차감 | 좋아요 카운트 |
+|---|---|---|
+| 비즈니스 규칙 | `stock >= quantity` 검증 필요 | 단순 +1 / -1 |
+| 실패 컨텍스트 | 얼마나 부족한지 필요 | 불필요 (멱등성만 지키면 됨) |
+| 도메인 로직 | `StockPolicy.validate()` | 없음 |
+| 선택 | 비관적 락 | Atomic UPDATE |
 
-- JOIN DELETE는 DB 레벨 연산으로 애플리케이션 가독성과 유지보수성이 떨어짐 → snapshot 방식 그대로 유지
-- 극소 윈도우에서 발생한 **고아 좋아요**는 배치로 주기적으로 정리
+좋아요는 성공/실패 여부만 중요하고 컨텍스트가 없으므로 Atomic UPDATE가 적합.
+
+### 구현
 
 ```sql
--- 고아 좋아요 정리 배치
-DELETE FROM likes WHERE product_id NOT IN (SELECT id FROM products)
+UPDATE product SET like_count = like_count + 1 WHERE id = ?
+UPDATE product SET like_count = like_count - 1 WHERE id = ? AND like_count > 0
 ```
 
-### 고아 주문은 실제로 문제가 아님
+### Atomic UPDATE를 무조건 호출하면 안 되는 이유
 
-브랜드 삭제와 `OrderFacade.createOrder`가 동시에 실행되어 삭제된 상품에 대한 주문이 생성되더라도, `OrderItem`이 **주문 시점의 상품 정보를 스냅샷으로 저장**하고 있어 주문 이행과 내역 표시에 영향이 없다.
+이미 좋아요한 상태에서 동시에 `like` 요청 2건이 들어오면:
 
-```java
-// OrderItem — 자기 완결적 스냅샷
-private Long productId;      // 참조용 (FK가 끊겨도 무방)
-private String productName;  // 주문 시점 스냅샷
-private String brandName;    // 주문 시점 스냅샷
-private Integer unitPrice;   // 주문 시점 스냅샷
-private Integer quantity;
+```sql
+UPDATE product SET like_count = like_count + 1 WHERE id = ?  -- T1
+UPDATE product SET like_count = like_count + 1 WHERE id = ?  -- T2
+-- like_count가 2 증가 → 실제로는 1만 증가해야 함
 ```
 
-- 삭제 타이밍에 생성된 주문은 **유효한 주문으로 이행**
-- `productId` FK가 끊겨도 주문 처리/표시에 실질적 영향 없음
-- 주문 고아 문제를 방지하기 위한 별도 락 불필요
+**실제로 insert/delete 됐을 때만 Atomic UPDATE를 호출해야 함.** 이슈 3 해결 방식과 연계.
 
-> 이슈 2(likeCount 배치 동기화)와 동일한 결의 접근: 동시성 문제를 실시간으로 막기보다, 발생 가능성을 수용하고 사후 정합성 보정으로 해결
+| 상황 | insert/delete 결과 | Atomic UPDATE 호출 |
+|---|---|---|
+| 정상 좋아요 | inserted = true | ✅ +1 |
+| 중복 좋아요 | inserted = false | ❌ 호출 안 함 |
+| 정상 취소 | deleted = 1 | ✅ -1 |
+| 없는 좋아요 취소 | deleted = 0 | ❌ 호출 안 함 |
 
 ---
 
-## 이슈 6 — 회원가입 중복 loginId
+## 이슈 3 — 좋아요 중복/누락 UNIQUE 제약
 
-**대상 코드**
+### 핵심 원칙
+
+**없는 데이터에는 락을 걸 수 없다.**
+
+존재하지 않는 행에 비관적/낙관적 락 모두 적용 불가. `userId + productId` UNIQUE 제약이 유일한 원자적 보호 수단.
+
+### like — Infrastructure Layer에서 예외 흡수
 
 ```java
-// UserFacade.signup (line 30-41)
-if (userRepository.findByLoginId(loginIdVo).isPresent()) {  // ← 존재 확인
-    throw new CoreException(ErrorType.CONFLICT, "이미 등록된 로그인ID 입니다.");
-}
-userRepository.save(User.create(...));  // ← 저장
-```
-
-**문제**
-
-동일한 `loginId`로 동시에 가입 요청이 들어오면, 두 트랜잭션이 모두 존재 확인을 통과하고 저장을 시도함. DB UNIQUE 제약이 최후 방어선이 되나, 애플리케이션은 `DataIntegrityViolationException`을 핸들링하지 않아 500 에러가 발생할 수 있음
-
-### 최종 선택 — DB UNIQUE 제약 + GlobalExceptionHandler 409 변환
-
-**없는 데이터에는 락을 걸 수 없다.** (이슈 3과 동일한 원리)
-저장소가 원자성을 보장하면, 저장소 예외를 애플리케이션이 처리하는 건 자연스러운 흐름이다.
-
-**검토한 대안들**
-
-**대안 1 — Java synchronized**
-
-회원가입 로직이 한 곳에만 있으므로 `synchronized`로 단일 진입을 보장할 수 있다는 관점.
-단, 아래 이유로 선택하지 않음:
-
-- `synchronized` + `@Transactional` 병용 시, AOP 프록시 구조상 락은 메서드 실행 범위만 포함하고 커밋은 포함하지 않아 무력화됨
-  ```
-  Proxy: beginTransaction → target.signup() [락 획득/해제] → commitTransaction
-  → T2가 T1의 커밋 전에 락을 획득해 동일한 문제 재발
-  ```
-- 해결하려면 계층을 추가하거나 `@Transactional`을 제거해야 함 → 동시성 이슈 때문에 아키텍처가 왜곡됨
-- loginId와 무관한 모든 회원가입 요청이 직렬화됨 → 불필요한 성능 저하
-
-**대안 2 — ConcurrentHashMap\<String, Lock\> (loginId 단위 JVM 락)**
-
-loginId 단위로 정밀하게 락을 걸어 무관한 요청은 병렬 처리:
-```java
-Lock lock = locks.computeIfAbsent(loginId, k -> new ReentrantLock());
-lock.lock();
-try { ... } finally {
-    lock.unlock();
-    locks.remove(loginId); // ← 여기서 레이스 컨디션 발생
+// JpaLikeRepository (Infrastructure)
+public boolean saveIfAbsent(Like like) {
+    try {
+        likeJpaRepository.save(LikeEntity.from(like));
+        return true;       // 실제 삽입됨
+    } catch (DataIntegrityViolationException e) {
+        return false;      // 이미 존재 → 멱등, no-op
+    }
 }
 ```
-락 해제 후 제거 시점에 다른 스레드가 같은 키로 새 Lock 객체를 생성하면, 서로 다른 락 인스턴스를 보유하게 되어 동시 진입이 가능해짐.
-안전하게 하려면 참조 카운팅이 필요하고 구현 복잡도가 높아짐. 멀티 인스턴스에서도 무력화됨.
 
-**저장소가 원자성을 보장하지 않는 경우**
+`DataIntegrityViolationException`은 인프라 예외. Application Layer에 누출되면 레이어 경계가 무너지므로 Infrastructure Layer에서 흡수.
 
-DB UNIQUE 제약 없이 동시성 문제를 해결하려면 **다른 레이어에서 원자성을 빌려와야 함**
+```
+Application Layer가 알아야 할 것: "좋아요가 이미 존재한다" (도메인 의미)
+Application Layer가 알면 안 되는 것: "DataIntegrityViolationException" (인프라 구현 세부사항)
+```
 
-| 원자성 제공자 | 수단 |
-|---|---|
-| DB | UNIQUE 제약 |
-| Redis | `SETNX` (SET if Not eXists) |
-| JVM (단일 인스턴스) | `synchronized`, `ConcurrentHashMap.putIfAbsent` |
-
-저장소가 원자성을 보장하지 못하면 외부 시스템(Redis 등)을 도입해야 하며, 그 시스템이 항상 가용해야 한다는 의존성이 추가됨.
-
-**처리 방식**
-
-Infrastructure Layer에서 infra 예외를 도메인 예외로 변환한다. (이슈 3과 동일한 패턴)
+### unlike — DELETE 결과로 판단
 
 ```java
-// JpaUserRepository (Infrastructure)
-@Override
+int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
+if (deleted > 0) productRepository.decreaseLikeCount(productId);
+```
+
+`DELETE` 결과 자체가 "실제로 삭제됐냐"를 알려주므로 별도 존재 확인 불필요. DB 연산 결과가 곧 판단 기준.
+
+### product 락으로 해결하면 안 되는 이유
+
+product에 `FOR UPDATE`를 먼저 걸면 이론적으로는 likes 중복을 막을 수 있음.
+단, 두 가지 문제가 있음:
+
+1. **좋아요마다 product 행 전체를 잠금** → 상품 조회, 재고 차감 등 다른 연산과 경합 발생
+2. **책임 위치가 잘못됨** — likes 테이블의 무결성은 likes 테이블이 보장해야 함
+
+> product 락은 product 데이터를 보호하는 것,
+> likes 테이블 중복은 likes 테이블의 UNIQUE 제약이 보호하는 것.
+> **각자의 책임을 각자의 레이어에서 해결하는 게 맞다.**
+
+---
+
+# 이슈 6, 7 — 중복 loginId / 브랜드명 중복
+
+## 핵심 원칙
+
+**없는 데이터에는 락을 걸 수 없다. UNIQUE 제약이 유일한 원자적 보호 수단.** (이슈 3과 동일)
+
+## 예외 처리 — Infrastructure Layer에서 흡수
+
+```java
+// JpaUserRepository
 public User save(User user) {
     try {
         return userJpaRepository.save(UserEntity.from(user)).toDomain();
@@ -316,253 +570,10 @@ public User save(User user) {
 }
 ```
 
-- `DataIntegrityViolationException`은 Infrastructure 경계 안에서 흡수
-- Application Layer는 `CoreException(CONFLICT)`만 인지 → infra 예외 누출 없음
-- `GlobalExceptionHandler`는 `CoreException`을 409로 변환 (기존 흐름 그대로)
+## `save()`가 다른 목적으로 쓰여도 메시지 오염이 없는 이유
 
----
+이슈 4(쿠폰)에서 `OptimisticLockingFailureException`은 UPDATE에서 발생하므로 `save()`가 여러 목적으로 쓰이면 메시지 오염 위험이 있었음.
 
-## 이슈 7 — 브랜드명 중복 (create/update)
+반면 `DataIntegrityViolationException`은 **INSERT에서만 발생**함.
 
-**대상 코드**
-
-```java
-// BrandFacade.create
-if (brandRepository.existsByName(name)) {          // ← 존재 확인
-    throw new CoreException(ErrorType.CONFLICT, "중복된 이름의 브랜드가 존재합니다.");
-}
-brandRepository.save(Brand.of(name, description)); // ← 저장
-
-// BrandFacade.update
-if (brandRepository.existsByNameAndIdNot(name, brandId)) { // ← 존재 확인
-    throw new CoreException(ErrorType.CONFLICT, "중복된 이름의 브랜드가 존재합니다.");
-}
-brand.update(name, description); // ← 수정
-```
-
-**문제**
-
-동일한 `name`으로 동시에 요청이 들어오면 두 트랜잭션이 모두 존재 확인을 통과할 수 있음
-
-### 최종 선택 — UNIQUE 제약으로 충분, 별도 락 불필요
-
-`Brand.name`에 `@Column(unique = true)` 제약이 걸려 있어, 중복 삽입/수정 시 DB가 원자적으로 차단한다.
-
-이슈 6(loginId)과 동일한 원리: **UNIQUE 제약이 원자성을 보장하므로, Check-Then-Act 패턴이어도 락이 필요 없다.**
-충돌 시 `DataIntegrityViolationException` → Infrastructure Layer에서 `CoreException(CONFLICT)`로 변환.
-
-```java
-// JpaBrandRepository (Infrastructure)
-@Override
-public Brand save(Brand brand) {
-    try {
-        return brandJpaRepository.save(BrandEntity.from(brand)).toDomain();
-    } catch (DataIntegrityViolationException e) {
-        throw new CoreException(ErrorType.CONFLICT, "중복된 이름의 브랜드가 존재합니다.");
-    }
-}
-```
-
----
-
-## 이슈 8 — 상품 삭제 카스케이드 스냅샷 스탈니스
-
-**대상 코드**
-
-```java
-// ProductFacade.delete
-likeRepository.deleteAllByProductId(productId);  // ① 좋아요 삭제
-productRepository.deleteById(productId);         // ② 상품 삭제
-```
-
-**문제**
-
-①과 ② 사이에 다른 트랜잭션이 해당 상품에 좋아요를 추가하면, 삭제되지 않은 고아 좋아요 레코드가 남음
-
-### 최종 선택 — 이슈 5와 동일: 배치 정리
-
-이슈 5(BrandFacade.delete)와 동일한 구조이므로 동일한 방향으로 해결한다.
-
-- 상품 삭제는 저빈도 관리자 작업 → 비관적 락 도입은 오버엔지니어링
-- 극소 윈도우에서 발생한 고아 좋아요는 이슈 5의 배치로 함께 정리
-
-```sql
--- 이슈 5 배치와 동일하게 처리됨
-DELETE FROM likes WHERE product_id NOT IN (SELECT id FROM products)
-```
-
----
-
-## 이슈 1 — 재고 차감 (토론 완료)
-
-## 대상 코드
-
-`OrderFacade.createOrder` — 재고 차감 흐름
-
-```java
-// 1. 락 없는 SELECT
-List<Product> products = productRepository.findAllByIdIn(productIds);
-
-// 2. 메모리에서 재고 검증
-stockPolicy.validate(productMap, orderLines);
-
-// 3. 메모리에서 재고 차감
-orderCommand.items().forEach(item ->
-    productMap.get(item.productId()).decreaseStock(item.quantity())
-);
-
-// 4. 트랜잭션 커밋 → JPA dirty checking → UPDATE
-orderRepository.save(order);
-```
-
-**핵심 문제**: "읽기 → 검증 → 수정"이 단일 원자적 연산이 아니며, ①과 ④ 사이에 다른 트랜잭션이 끼어들 수 있음
-
----
-
-## 1. 발생 가능한 문제
-
-### 문제 1 — 실제 재고보다 더 많은 주문이 생성됨
-
-동시에 여러 사람이 주문을 생성하는 경우, 재고 검증을 통과한 주문이 실제 재고를 초과해 생성될 수 있음
-
-**예시**: 재고 10개 상품에 8개 주문 2건이 동시 진입
-
-| 시점 | T1 | T2 | DB stock |
-|------|----|----|----------|
-| t1 | SELECT → 10 | SELECT → 10 | 10 |
-| t2 | validate OK (10≥8) | validate OK (10≥8) | 10 |
-| t3 | 메모리 stock=2 | 메모리 stock=2 | 10 |
-| t4 | UPDATE stock=2, 커밋 | — | 2 |
-| t5 | — | UPDATE stock=2, 커밋 | **2** ← 실제론 -6이어야 함 |
-
-T2는 T1의 커밋을 인식하지 못하고, 자신이 읽은 스냅샷(10)을 기준으로 계산한 값(2)을 덮어씀
-
-### 문제 2 — 처리된 주문 수량과 차감 후 재고 수량의 불일치
-
-동시에 생성된 주문에서 처리된 수량의 합과 DB에 기록된 재고 차감량이 맞지 않을 수 있음
-
-**예시**: 재고 1개 상품에 1개 주문 100건이 동시 진입
-- 100건 모두 `stock=1` 읽고 validate 통과 → 100건 주문 생성
-- 각 트랜잭션이 `stock=0`으로 덮어쓰며 최종 stock=0
-- 주문은 100건 처리됐는데 재고는 1만 차감된 것처럼 기록됨
-
-> 문제 1은 **비즈니스 결과**의 문제, 문제 2는 **데이터 정합성**의 문제
-
----
-
-## 2. 해결 방안
-
-### 방안 A — 비관적 락 (Pessimistic Lock)
-
-조회 시점에 `SELECT ... FOR UPDATE`로 행을 잠가, 해당 트랜잭션이 끝날 때까지 다른 트랜잭션이 같은 행을 읽지 못하게 막는 방식
-
-```java
-// ProductJpaRepository
-@Lock(LockModeType.PESSIMISTIC_WRITE)
-List<Product> findAllByIdIn(List<Long> ids);
-```
-
-T1이 락을 잡고 있는 동안 T2는 대기 → T1 커밋 후 T2가 갱신된 재고를 읽고 처리
-
-### 방안 B — 낙관적 락 (Optimistic Lock)
-
-`Product`에 `@Version`을 추가해, 커밋 시점에 충돌을 감지하는 방식
-
-```java
-@Version
-private Long version;
-```
-
-T1이 먼저 커밋하면 version 증가 → T2가 커밋 시 version 불일치 감지 → `OptimisticLockException` → 상위에서 재시도 또는 실패 처리
-
-### 방안 C — DB 레벨 원자적 UPDATE
-
-애플리케이션 레벨 검증 없이 DB가 원자적으로 차감 처리
-
-```sql
-UPDATE PRODUCT SET stock = stock - ? WHERE id = ? AND stock >= ?
-```
-
-락 획득 없이 DB 자체의 원자성에 의존. UPDATE 결과 affected rows가 0이면 재고 부족으로 판단해 실패 처리
-
-### 방안 D — CAS (Compare-And-Swap)
-
-도메인 레이어에서 검증 + 새 재고값 계산 후, DB에 "내가 읽은 값과 같으면 바꿔라"만 요청
-
-```java
-// Application Layer
-Product product = productRepository.findById(id);
-stockPolicy.validate(product, quantity);              // 도메인 검증 ✅
-int newStock = product.stock().value() - quantity;    // 도메인 계산 ✅
-
-// DB에는 원자적 비교만 요청
-int updated = productRepository.compareAndSwapStock(id, currentStock, newStock);
-if (updated == 0) throw new StockConflictException(); // 충돌 → 재시도
-```
-
-```sql
-UPDATE product SET stock = :newStock WHERE id = :id AND stock = :currentStock
--- 비즈니스 규칙 없음, 단순히 "값이 같은지"만 확인
-```
-
-**방안 C와의 차이**
-
-| | 방안 C (Atomic UPDATE) | 방안 D (CAS) |
-|---|---|---|
-| 비즈니스 규칙 위치 | SQL (`stock >= ?`) | 도메인 레이어 |
-| DB가 하는 일 | 검증 + 차감 | 단순 값 비교 후 교체 |
-| 도메인 로직 유지 | ❌ | ✅ |
-
-**충돌 처리 흐름**
-
-```
-CAS 실패 (0 rows) → StockConflictException → 재시도
-  → product 재조회 (최신 stock)
-  → stockPolicy.validate() 재실행
-    → 재고 부족 → CoreException("재고가 부족합니다.") → 즉시 실패
-    → 재고 충분 → CAS 재시도
-```
-
-재시도 예외(`StockConflictException`)와 재고 부족 예외(`CoreException`)를 분리해 재시도 대상을 명확히 함
-
----
-
-## 3. 트레이드오프 및 선택
-
-### 방안별 트레이드오프
-
-| | 방안 A (비관적 락) | 방안 B (낙관적 락) | 방안 C (원자적 UPDATE) | 방안 D (CAS) |
-|---|---|---|---|---|
-| 동시성 보장 | ✅ 강함 | ✅ 감지 후 처리 | ✅ DB 원자성 | ✅ DB 원자성 |
-| 성능 | ❌ 락 경합 | ✅ 충돌 없으면 빠름 | ✅ 락 없음 | ✅ 락 없음 |
-| 도메인 로직 위치 | ✅ 도메인 유지 | ✅ 도메인 유지 | ❌ SQL로 이탈 | ✅ 도메인 유지 |
-| 추가 구현 | 낮음 | `@Version`, 재시도 필요 | affected rows 판단 | CAS 쿼리, 재시도 필요 |
-| 커넥션 점유 | ❌ 락 대기 중 점유 | ✅ 없음 | ✅ 없음 | ✅ 없음 |
-
-### 방안 C를 선택하지 않은 이유
-
-- "재고 부족 시 주문 불가"와 같은 비즈니스 규칙이 SQL WHERE절로 내려가 도메인 레이어의 응집도가 떨어짐
-- `Product.decreaseStock()`에 캡슐화된 재고 검증 로직이 의미를 잃게 됨
-
-### 방안 B (낙관적 락)와 방안 D (CAS)의 차이
-
-| | 방안 B (낙관적 락 `@Version`) | 방안 D (CAS) |
-|---|---|---|
-| 비교 대상 | version (기술적 값) | stock (비즈니스 값) |
-| 충돌 조건 | **어떤 필드든** 변경 시 | **stock이** 변경됐을 때만 |
-| 상품명만 수정된 경우 | version 증가 → 재고 차감 충돌 ❌ | stock 그대로 → 재고 차감 성공 ✅ |
-| 구현 | JPA 자동 처리 | 직접 쿼리 작성 |
-
-CAS는 낙관적 락보다 **더 세밀한 충돌 감지** — 재고와 무관한 변경은 충돌로 처리하지 않음
-
-### 최종 선택 — 방안 A (비관적 락)
-
-**선택 이유**
-- 재고는 정합성이 중요한 데이터로, 충돌 후 재시도보다 선제적 차단이 적합
-- `Product.decreaseStock()`의 비즈니스 로직을 도메인 레이어에 그대로 유지할 수 있음
-- `StockPolicy.validate()`의 사전 검증 역할도 그대로 유지됨
-- 단일 IN절 `FOR UPDATE`는 MySQL InnoDB가 PK 인덱스 순서로 락을 획득하므로 데드락 위험이 낮음
-
-**감수할 트레이드오프**
-- 동일 상품에 주문이 몰리는 상황에서 락 경합으로 처리량 저하 가능
-- 락 대기 중에도 DB 커넥션을 점유하므로, 커넥션 풀이 소진되면 주문 외 다른 API에도 영향을 줄 수 있음
+비밀번호 수정 같은 UPDATE 연산은 `DataIntegrityViolationException`을 발생시키지 않으므로, `save()`가 INSERT/UPDATE 양쪽에 쓰여도 메시지 오염 위험 없음.
