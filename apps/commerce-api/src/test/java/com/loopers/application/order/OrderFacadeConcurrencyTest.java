@@ -161,8 +161,10 @@ class OrderFacadeConcurrencyTest {
                     startLatch.await();
                     orderFacade.createOrder(userId, command);
                     successCount.incrementAndGet();
-                } catch (Exception e) {
+                } catch (CoreException e) {
                     failCount.incrementAndGet();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 } finally {
                     doneLatch.countDown();
                 }

@@ -2,7 +2,6 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
-import org.springframework.dao.OptimisticLockingFailureException;
 import com.loopers.domain.coupon.UserCoupon;
 import com.loopers.domain.coupon.UserCouponRepository;
 import com.loopers.domain.order.*;
@@ -82,11 +81,7 @@ public class OrderFacade {
                     .sum();
             userCoupon.use(userId);
             discountAmount = userCoupon.calculateDiscount(originalAmount);
-            try {
-                userCouponRepository.save(userCoupon);
-            } catch (OptimisticLockingFailureException e) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.");
-            }
+            userCouponRepository.save(userCoupon);
         }
 
         Order order = Order.of(user.getId(), orderItems, userCouponId, discountAmount);
