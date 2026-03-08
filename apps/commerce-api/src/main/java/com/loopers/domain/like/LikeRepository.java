@@ -5,11 +5,11 @@ import java.util.Map;
 
 public interface LikeRepository {
 
-    void save(Like like);
+    boolean saveIfAbsent(Like like);
 
     boolean existsByUserIdAndProductId(Long userId, Long productId);
 
-    void deleteByUserIdAndProductId(Long userId, Long productId);
+    int deleteByUserIdAndProductId(Long userId, Long productId);
 
     void deleteAllByProductId(Long productId);
 

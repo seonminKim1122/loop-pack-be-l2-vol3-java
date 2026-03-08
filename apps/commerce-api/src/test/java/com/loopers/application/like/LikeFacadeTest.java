@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,23 +34,6 @@ class LikeFacadeTest {
     @Nested
     class LikeTest {
 
-        @DisplayName("사용자와 상품이 모두 존재하고 동일한 대상에 대한 좋아요가 없으면 좋아요를 저장한다")
-        @Test
-        void savesLike_whenUserAndProductExistsAndLikeNotExists() {
-            // arrange
-            Long userId = 1L;
-            Long productId = 1L;
-            when(userRepository.existsById(userId)).thenReturn(true);
-            when(productRepository.existsById(productId)).thenReturn(true);
-            when(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(false);
-
-            // act
-            likeFacade.like(userId, productId);
-
-            // assert
-            verify(likeRepository).save(any());
-        }
-
         @DisplayName("사용자가 존재하지 않으면, CoreException 이 발생한다.")
         @Test
         void throwsCoreException_whenUserNotFound() {
@@ -59,18 +41,17 @@ class LikeFacadeTest {
             Long userId = 1L;
             Long productId = 1L;
             when(userRepository.existsById(userId)).thenReturn(false);
-            when(productRepository.existsById(productId)).thenReturn(true);
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                likeFacade.like(userId, productId);
-            });
+            CoreException result = assertThrows(CoreException.class, () ->
+                likeFacade.like(userId, productId)
+            );
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 사용자입니다.");
         }
 
-        @DisplayName("상품이 존재하지 않으면, CoreException 이 발생한다")
+        @DisplayName("상품이 존재하지 않으면, CoreException 이 발생한다.")
         @Test
         void throwsCoreException_whenProductNotFound() {
             // arrange
@@ -80,29 +61,46 @@ class LikeFacadeTest {
             when(productRepository.existsById(productId)).thenReturn(false);
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                likeFacade.like(userId, productId);
-            });
+            CoreException result = assertThrows(CoreException.class, () ->
+                likeFacade.like(userId, productId)
+            );
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
         }
 
-        @DisplayName("이미 좋아요한 이력이 있으면, save 하지 않는다")
+        @DisplayName("좋아요가 처음 등록되면, likeCount 가 증가한다.")
         @Test
-        void notSavesLike_whenLikeExists() {
+        void increasesLikeCount_whenLikeInserted() {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
             when(userRepository.existsById(userId)).thenReturn(true);
             when(productRepository.existsById(productId)).thenReturn(true);
-            when(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(true);
+            when(likeRepository.saveIfAbsent(any())).thenReturn(true);
 
             // act
             likeFacade.like(userId, productId);
 
             // assert
-            verify(likeRepository, never()).save(any());
+            verify(productRepository).increaseLikeCount(productId);
+        }
+
+        @DisplayName("이미 좋아요한 이력이 있으면, likeCount 가 증가하지 않는다.")
+        @Test
+        void doesNotIncreaseLikeCount_whenLikeAlreadyExists() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 1L;
+            when(userRepository.existsById(userId)).thenReturn(true);
+            when(productRepository.existsById(productId)).thenReturn(true);
+            when(likeRepository.saveIfAbsent(any())).thenReturn(false);
+
+            // act
+            likeFacade.like(userId, productId);
+
+            // assert
+            verify(productRepository, never()).increaseLikeCount(productId);
         }
     }
 
@@ -110,18 +108,34 @@ class LikeFacadeTest {
     @Nested
     class UnlikeTest {
 
-        @DisplayName("좋아요 취소를 요청하면, 해당 좋아요가 삭제된다.")
+        @DisplayName("좋아요가 존재해 삭제되면, likeCount 가 감소한다.")
         @Test
-        void deletesLike_whenUnlikeRequested() {
+        void decreasesLikeCount_whenLikeDeleted() {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
+            when(likeRepository.deleteByUserIdAndProductId(userId, productId)).thenReturn(1);
 
             // act
             likeFacade.unlike(userId, productId);
 
             // assert
-            verify(likeRepository).deleteByUserIdAndProductId(userId, productId);
+            verify(productRepository).decreaseLikeCount(productId);
+        }
+
+        @DisplayName("좋아요가 존재하지 않으면, likeCount 가 감소하지 않는다.")
+        @Test
+        void doesNotDecreaseLikeCount_whenLikeNotExists() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 1L;
+            when(likeRepository.deleteByUserIdAndProductId(userId, productId)).thenReturn(0);
+
+            // act
+            likeFacade.unlike(userId, productId);
+
+            // assert
+            verify(productRepository, never()).decreaseLikeCount(productId);
         }
     }
 
@@ -129,7 +143,7 @@ class LikeFacadeTest {
     @Nested
     class GetLikeList {
 
-        @DisplayName("좋아요한 상품이 없으면 빈 목록을 반환한다")
+        @DisplayName("좋아요한 상품이 없으면 빈 목록을 반환한다.")
         @Test
         void returnsEmptyList_whenNoLikes() {
             // arrange
@@ -143,13 +157,13 @@ class LikeFacadeTest {
             assertThat(result).isEmpty();
         }
 
-        @DisplayName("좋아요한 상품이 있으면 브랜드명과 좋아요 수가 포함된 목록을 반환한다")
+        @DisplayName("좋아요한 상품이 있으면 브랜드명과 좋아요 수가 포함된 목록을 반환한다.")
         @Test
         void returnsLikeProductInfoList_withBrandNameAndLikeCount() {
             // arrange
             Long userId = 1L;
-            Long productId = 0L; // BaseEntity.id = 0L
-            Long brandId = 0L;   // BaseEntity.id = 0L
+            Long productId = 0L;
+            Long brandId = 0L;
 
             Like like = Like.of(userId, productId);
             Product product = Product.of("상품명", "상품 설명", Stock.from(10), Price.from(1000), brandId);
@@ -158,7 +172,6 @@ class LikeFacadeTest {
             when(likeRepository.findAllByUserId(userId)).thenReturn(List.of(like));
             when(productRepository.findAllByIdIn(List.of(productId))).thenReturn(List.of(product));
             when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
-            when(likeRepository.countsByProductIdIn(List.of(productId))).thenReturn(Map.of(productId, 3L));
 
             // act
             List<LikeProductInfo> result = likeFacade.getLikeList(userId);
@@ -167,7 +180,7 @@ class LikeFacadeTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).name()).isEqualTo("상품명");
             assertThat(result.get(0).brand()).isEqualTo("브랜드명");
-            assertThat(result.get(0).likeCount()).isEqualTo(3L);
+            assertThat(result.get(0).likeCount()).isEqualTo(0L);
         }
     }
 }

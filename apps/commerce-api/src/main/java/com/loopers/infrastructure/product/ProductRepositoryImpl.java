@@ -58,7 +58,22 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIdInWithLock(List<Long> ids) {
+        return jpaRepository.findAllByIdInWithLock(ids);
+    }
+
+    @Override
     public PageResponse<Product> findAllByBrandId(Long brandId, Pageable pageable) {
         return PageResponse.from(jpaRepository.findAllByBrandId(brandId, pageable));
+    }
+
+    @Override
+    public void increaseLikeCount(Long productId) {
+        jpaRepository.increaseLikeCount(productId);
+    }
+
+    @Override
+    public void decreaseLikeCount(Long productId) {
+        jpaRepository.decreaseLikeCount(productId);
     }
 }

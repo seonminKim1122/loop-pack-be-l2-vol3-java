@@ -3,6 +3,7 @@ package com.loopers.infrastructure.like;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,8 +17,13 @@ public class LikeRepositoryImpl implements LikeRepository {
     private final LikeJpaRepository jpaRepository;
 
     @Override
-    public void save(Like like) {
-        jpaRepository.save(like);
+    public boolean saveIfAbsent(Like like) {
+        try {
+            jpaRepository.saveAndFlush(like);
+            return true;
+        } catch (DataIntegrityViolationException e) {
+            return false;
+        }
     }
 
     @Override
@@ -26,8 +32,8 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
-    public void deleteByUserIdAndProductId(Long userId, Long productId) {
-        jpaRepository.deleteByUserIdAndProductId(userId, productId);
+    public int deleteByUserIdAndProductId(Long userId, Long productId) {
+        return jpaRepository.deleteByUserIdAndProductId(userId, productId);
     }
 
     @Override

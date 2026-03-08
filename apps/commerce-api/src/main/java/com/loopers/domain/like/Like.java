@@ -11,7 +11,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "LIKES", uniqueConstraints = {
+@Table(name = "likes", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"user_id", "product_id"})
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

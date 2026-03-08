@@ -13,7 +13,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "PRODUCT")
+@Table(name = "product")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product extends BaseEntity {
 
@@ -29,6 +29,9 @@ public class Product extends BaseEntity {
     @Embedded
     private Price price;
 
+    @Column(name = "like_count")
+    private Long likeCount;
+
     @Column(name = "brand_id")
     private Long brandId;
 
@@ -38,6 +41,7 @@ public class Product extends BaseEntity {
         this.stock = stock;
         this.price = price;
         this.brandId = brandId;
+        this.likeCount = 0L;
     }
 
     public static Product of(String name, String description, Stock stock, Price price, Long brandId) {
@@ -92,5 +96,19 @@ public class Product extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
         }
         this.stock = Stock.from(this.stock().value() - quantity);
+    }
+
+    public void increaseLike() {
+        this.likeCount++;
+    }
+
+    public void decreaseLike() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
+    }
+
+    public Long likeCount() {
+        return likeCount;
     }
 }

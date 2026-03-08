@@ -13,6 +13,6 @@ public record OrderDetail(Long orderId, Long totalPrice, List<OrderItemDetail> i
         List<OrderItemDetail> itemDetails = order.items().stream()
                 .map(item -> new OrderItemDetail(item.productName(), item.brandName(), item.unitPrice(), item.quantity()))
                 .toList();
-        return new OrderDetail(order.getId(), order.totalPrice(), itemDetails);
+        return new OrderDetail(order.getId(), order.paymentAmount(), itemDetails);
     }
 }

@@ -10,7 +10,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "ORDER_ITEM")
+@Table(name = "order_item")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItem extends BaseEntity {
 
@@ -46,6 +46,10 @@ public class OrderItem extends BaseEntity {
 
     public Integer unitPrice() {
         return unitPrice;
+    }
+
+    public long subtotal() {
+        return (long) unitPrice * quantity;
     }
 
     public Integer quantity() {

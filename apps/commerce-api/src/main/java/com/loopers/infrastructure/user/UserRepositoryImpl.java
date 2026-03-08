@@ -3,7 +3,10 @@ package com.loopers.infrastructure.user;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.domain.user.vo.LoginId;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,7 +26,11 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public void save(User user) {
-        userJpaRepository.save(user);
+        try {
+            userJpaRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 등록된 로그인ID 입니다.");
+        }
     }
 
     @Override

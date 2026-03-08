@@ -160,6 +160,63 @@ class ProductTest {
         }
     }
 
+    @DisplayName("좋아요 시, ")
+    @Nested
+    class Like {
+
+        @DisplayName("상품 생성 시, likeCount 는 0 으로 초기화된다.")
+        @Test
+        void likeCountInitializedToZero_whenProductCreated() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 1L);
+
+            // act & assert
+            assertThat(product.likeCount()).isEqualTo(0L);
+        }
+
+        @DisplayName("좋아요를 누르면, likeCount 가 1 증가한다.")
+        @Test
+        void increasesLikeCount_whenLiked() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 1L);
+
+            // act
+            product.increaseLike();
+            product.increaseLike();
+
+            // assert
+            assertThat(product.likeCount()).isEqualTo(2L);
+        }
+
+        @DisplayName("좋아요를 취소하면, likeCount 가 1 감소한다.")
+        @Test
+        void decreasesLikeCount_whenUnliked() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 1L);
+            product.increaseLike();
+            product.increaseLike();
+
+            // act
+            product.decreaseLike();
+
+            // assert
+            assertThat(product.likeCount()).isEqualTo(1L);
+        }
+
+        @DisplayName("likeCount 가 0 이면, 좋아요 취소 시 0 을 유지한다.")
+        @Test
+        void doesNotDecreaseBelowZero_whenLikeCountIsZero() {
+            // arrange
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 1L);
+
+            // act
+            product.decreaseLike();
+
+            // assert
+            assertThat(product.likeCount()).isEqualTo(0L);
+        }
+    }
+
     @DisplayName("재고 확인 시, ")
     @Nested
     class HasEnoughStock {

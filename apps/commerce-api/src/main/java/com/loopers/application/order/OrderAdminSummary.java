@@ -17,7 +17,7 @@ public record OrderAdminSummary(
         return new OrderAdminSummary(
                 order.getId(),
                 order.getCreatedAt(),
-                order.totalPrice(),
+                order.paymentAmount(),
                 order.itemCount(),
                 user.getId(),
                 user.name().value()

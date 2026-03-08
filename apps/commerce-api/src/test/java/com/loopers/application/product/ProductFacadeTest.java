@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,12 +84,10 @@ class ProductFacadeTest {
             when(brand.name()).thenReturn("나이키");
 
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
-            // product.getId() = 0L (BaseEntity)
 
             PageRequest pageRequest = PageRequest.of(0, 20);
             when(productRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(product), 0, 20, 1));
             when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
-            when(likeRepository.countsByProductIdIn(List.of(0L))).thenReturn(Map.of(0L, 5L));
 
             // act
             PageResponse<ProductInfo> result = productFacade.getList(pageRequest);
@@ -98,7 +95,26 @@ class ProductFacadeTest {
             // assert
             assertThat(result.content()).hasSize(1);
             assertThat(result.content().get(0).brand()).isEqualTo("나이키");
-            assertThat(result.content().get(0).likeCount()).isEqualTo(5L);
+            assertThat(result.content().get(0).likeCount()).isEqualTo(0L);
+        }
+
+        @DisplayName("브랜드가 존재하지 않는 상품이면, 브랜드명이 null인 상품 정보를 반환한다.")
+        @Test
+        void returnsProductInfoWithNullBrand_whenBrandNotFound() {
+            // arrange
+            Long brandId = 999L;
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
+
+            PageRequest pageRequest = PageRequest.of(0, 20);
+            when(productRepository.findAll(pageRequest)).thenReturn(new PageResponse<>(List.of(product), 0, 20, 1));
+            when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of());
+
+            // act
+            PageResponse<ProductInfo> result = productFacade.getList(pageRequest);
+
+            // assert
+            assertThat(result.content()).hasSize(1);
+            assertThat(result.content().get(0).brand()).isNull();
         }
 
         @DisplayName("등록된 상품이 없으면, 빈 목록을 반환한다.")
@@ -131,7 +147,6 @@ class ProductFacadeTest {
 
             when(productRepository.findById(productId)).thenReturn(Optional.of(product));
             when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
-            when(likeRepository.countByProductId(productId)).thenReturn(7L);
 
             // act
             ProductInfo result = productFacade.getDetail(productId);
@@ -139,7 +154,24 @@ class ProductFacadeTest {
             // assert
             assertThat(result.name()).isEqualTo("나이키 에어맥스");
             assertThat(result.brand()).isEqualTo("나이키");
-            assertThat(result.likeCount()).isEqualTo(7L);
+            assertThat(result.likeCount()).isEqualTo(0L);
+        }
+
+        @DisplayName("브랜드가 존재하지 않는 상품이면, 브랜드명이 null인 상품 정보를 반환한다.")
+        @Test
+        void returnsProductInfoWithNullBrand_whenBrandNotFound() {
+            // arrange
+            Long productId = 1L;
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 999L);
+
+            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+            when(brandRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // act
+            ProductInfo result = productFacade.getDetail(productId);
+
+            // assert
+            assertThat(result.brand()).isNull();
         }
 
         @DisplayName("존재하지 않는 상품이면, CoreException 이 발생한다.")

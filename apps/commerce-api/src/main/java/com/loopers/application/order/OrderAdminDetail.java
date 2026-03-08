@@ -19,6 +19,6 @@ public record OrderAdminDetail(
         List<OrderItemDetail> itemDetails = order.items().stream()
                 .map(item -> new OrderItemDetail(item.productName(), item.brandName(), item.unitPrice(), item.quantity()))
                 .toList();
-        return new OrderAdminDetail(order.getId(), order.totalPrice(), itemDetails, user.getId(), user.name().value());
+        return new OrderAdminDetail(order.getId(), order.paymentAmount(), itemDetails, user.getId(), user.name().value());
     }
 }
