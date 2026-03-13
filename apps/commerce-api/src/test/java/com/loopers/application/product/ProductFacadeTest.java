@@ -5,6 +5,7 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.support.error.CoreException;
@@ -115,6 +116,37 @@ class ProductFacadeTest {
             // assert
             assertThat(result.content()).hasSize(1);
             assertThat(result.content().get(0).brand()).isNull();
+        }
+
+        @DisplayName("좋아요 순 정렬 시, likeCount 내림차순으로 정렬된 상품 목록이 반환된다.")
+        @Test
+        void returnsProductsSortedByLikeCountDesc_whenSortIsLikeCount() {
+            // arrange
+            Long brandId = 1L;
+            Brand brand = mock(Brand.class);
+            when(brand.getId()).thenReturn(brandId);
+            when(brand.name()).thenReturn("나이키");
+
+            Product productWithMoreLikes = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
+            productWithMoreLikes.increaseLike();
+            productWithMoreLikes.increaseLike();
+
+            Product productWithLessLikes = Product.of("나이키 줌", "설명", Stock.from(5), Price.from(100000), brandId);
+            productWithLessLikes.increaseLike();
+
+            PageRequest pageRequest = PageRequest.of(0, 20, ProductSortType.LIKE_COUNT.getSort());
+            when(productRepository.findAll(pageRequest)).thenReturn(
+                new PageResponse<>(List.of(productWithMoreLikes, productWithLessLikes), 0, 20, 1)
+            );
+            when(brandRepository.findAllByIdIn(List.of(brandId, brandId))).thenReturn(List.of(brand));
+
+            // act
+            PageResponse<ProductInfo> result = productFacade.getList(PageRequest.of(0, 20), null, "like_count");
+
+            // assert
+            assertThat(result.content()).hasSize(2);
+            assertThat(result.content().get(0).likeCount()).isEqualTo(2L);
+            assertThat(result.content().get(1).likeCount()).isEqualTo(1L);
         }
 
         @DisplayName("등록된 상품이 없으면, 빈 목록을 반환한다.")
