@@ -35,36 +35,41 @@ public class ProductQueryService {
         int size = pageable.getPageSize();
         PageRequest pageRequest = PageRequest.of(page, size, ProductSortType.from(sort).getSort());
 
-        Optional<ProductCacheStore.ProductListCacheEntry> listCache = productCacheStore.getList(brandId, sort, page, size);
-        if (listCache.isPresent()) {
-            List<Long> productIds = listCache.get().productIds();
-            int totalPages = listCache.get().totalPages();
-            if (productIds.isEmpty()) {
-                return new PageResponse<>(List.of(), page, size, totalPages);
-            }
-            Map<Long, ProductInfo> cachedInfos = productCacheStore.multiGet(productIds);
-            List<Long> missingIds = productIds.stream().filter(id -> !cachedInfos.containsKey(id)).toList();
-            if (missingIds.isEmpty()) {
-                return new PageResponse<>(productIds.stream().map(cachedInfos::get).toList(), page, size, totalPages);
-            }
-            Map<Long, ProductInfo> allInfoMap = new HashMap<>(cachedInfos);
-            List<Product> missingProducts = productRepository.findAllByIdIn(missingIds);
-            List<Long> missingBrandIds = missingProducts.stream().map(Product::brandId).distinct().toList();
-            List<Brand> missingBrands = brandRepository.findAllByIdIn(missingBrandIds);
-            List<ProductInfo> missingInfos = productAssembler.toInfos(missingProducts, missingBrands);
-            for (int i = 0; i < missingProducts.size(); i++) {
-                Long productId = missingProducts.get(i).getId();
-                ProductInfo info = missingInfos.get(i);
-                allInfoMap.put(productId, info);
-                productCacheStore.put(productId, info);
-            }
-            List<ProductInfo> orderedInfos = productIds.stream()
-                    .map(allInfoMap::get)
-                    .filter(Objects::nonNull)
-                    .toList();
-            return new PageResponse<>(orderedInfos, page, size, totalPages);
+        return productCacheStore.getList(brandId, sort, page, size)
+                .map(entry -> resolveFromCache(entry, page, size))
+                .orElseGet(() -> resolveFromDatabase(brandId, pageRequest, sort, page, size));
+    }
+
+    private PageResponse<ProductInfo> resolveFromCache(ProductCacheStore.ProductListCacheEntry entry, int page, int size) {
+        List<Long> productIds = entry.productIds();
+        int totalPages = entry.totalPages();
+        if (productIds.isEmpty()) {
+            return new PageResponse<>(List.of(), page, size, totalPages);
         }
 
+        Map<Long, ProductInfo> cachedInfos = productCacheStore.multiGet(productIds);
+        List<Long> missingIds = productIds.stream().filter(id -> !cachedInfos.containsKey(id)).toList();
+        if (missingIds.isEmpty()) {
+            return new PageResponse<>(productIds.stream().map(cachedInfos::get).toList(), page, size, totalPages);
+        }
+
+        Map<Long, ProductInfo> allInfoMap = new HashMap<>(cachedInfos);
+        List<Product> missingProducts = productRepository.findAllByIdIn(missingIds);
+        List<Long> missingBrandIds = missingProducts.stream().map(Product::brandId).distinct().toList();
+        List<Brand> missingBrands = brandRepository.findAllByIdIn(missingBrandIds);
+        Map<Long, ProductInfo> missingInfoMap = productAssembler.toInfoMap(missingProducts, missingBrands);
+        allInfoMap.putAll(missingInfoMap);
+        missingInfoMap.forEach(productCacheStore::put);
+
+        List<ProductInfo> orderedInfos = productIds.stream()
+                .map(allInfoMap::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new PageResponse<>(orderedInfos, page, size, totalPages);
+    }
+
+    private PageResponse<ProductInfo> resolveFromDatabase(Long brandId, PageRequest pageRequest, String sort, int page, int size) {
         PageResponse<Product> products = brandId == null
                 ? productRepository.findAll(pageRequest)
                 : productRepository.findAllByBrandId(brandId, pageRequest);
@@ -77,15 +82,14 @@ public class ProductQueryService {
 
         List<Long> brandIds = productList.stream().map(Product::brandId).toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
-        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands);
+        Map<Long, ProductInfo> infoMap = productAssembler.toInfoMap(productList, brands);
 
         List<Long> productIds = productList.stream().map(Product::getId).toList();
         productCacheStore.putList(brandId, sort, page, size, productIds, products.totalPages());
-        for (int i = 0; i < productList.size(); i++) {
-            productCacheStore.put(productList.get(i).getId(), productInfos.get(i));
-        }
+        infoMap.forEach((id, info) -> productCacheStore.put(id, info));
 
-        return new PageResponse<>(productInfos, products.page(), products.size(), products.totalPages());
+        List<ProductInfo> orderedInfos = productIds.stream().map(infoMap::get).filter(Objects::nonNull).toList();
+        return new PageResponse<>(orderedInfos, products.page(), products.size(), products.totalPages());
     }
 
     @Transactional(readOnly = true)

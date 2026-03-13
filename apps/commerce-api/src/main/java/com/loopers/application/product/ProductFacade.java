@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @Component
@@ -60,7 +62,8 @@ public class ProductFacade {
         List<Long> brandIds = productList.stream().map(Product::brandId).toList();
         List<Brand> brands = brandRepository.findAllByIdIn(brandIds);
 
-        List<ProductInfo> productInfos = productAssembler.toInfos(productList, brands);
+        Map<Long, ProductInfo> infoMap = productAssembler.toInfoMap(productList, brands);
+        List<ProductInfo> productInfos = productList.stream().map(p -> infoMap.get(p.getId())).filter(Objects::nonNull).toList();
         return new PageResponse<>(productInfos, products.page(), products.size(), products.totalPages());
     }
 
