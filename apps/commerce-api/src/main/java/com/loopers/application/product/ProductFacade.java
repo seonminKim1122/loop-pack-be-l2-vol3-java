@@ -81,5 +81,6 @@ public class ProductFacade {
     public void delete(Long productId) {
         likeRepository.deleteAllByProductId(productId);
         productRepository.deleteById(productId);
+        productQueryService.evict(productId);
     }
 }
