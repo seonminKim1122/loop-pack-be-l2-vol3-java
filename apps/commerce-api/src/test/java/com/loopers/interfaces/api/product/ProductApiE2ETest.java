@@ -26,6 +26,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import com.loopers.support.page.PageResponse;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -58,6 +60,64 @@ class ProductApiE2ETest {
     void tearDown() {
         databaseCleanUp.truncateAllTables();
         redisCleanUp.truncateAll();
+    }
+
+    @DisplayName("GET /api/v1/products")
+    @Nested
+    class GetList {
+
+        @DisplayName("최초 조회 시 (캐시 MISS), 200 응답과 상품 목록을 반환하며 목록 캐시 키가 생성된다.")
+        @Test
+        void returnsProductList_whenCacheMiss() {
+            // arrange
+            Brand brand = brandJpaRepository.save(Brand.of("나이키", null));
+            productJpaRepository.save(
+                    Product.of("나이키 에어맥스", "편안한 운동화", Stock.from(10), Price.from(150000), brand.getId())
+            );
+            String url = ENDPOINT + "?brandId=" + brand.getId() + "&sort=latest&page=0&size=20";
+            String listCacheKey = "product:list:brandId=" + brand.getId() + ":sort=latest:page=0:size=20";
+
+            ParameterizedTypeReference<ApiResponse<PageResponse<ProductDto.ListResponse>>> responseType = new ParameterizedTypeReference<>() {};
+
+            // act
+            ResponseEntity<ApiResponse<PageResponse<ProductDto.ListResponse>>> response =
+                    testRestTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키 에어맥스"),
+                    () -> assertThat(redisTemplate.hasKey(listCacheKey)).isTrue()
+            );
+        }
+
+        @DisplayName("두 번째 조회 시 (캐시 HIT), 200 응답과 동일한 상품 목록을 반환한다.")
+        @Test
+        void returnsSameProductList_whenCacheHit() {
+            // arrange
+            Brand brand = brandJpaRepository.save(Brand.of("나이키", null));
+            productJpaRepository.save(
+                    Product.of("나이키 에어맥스", "편안한 운동화", Stock.from(10), Price.from(150000), brand.getId())
+            );
+            String url = ENDPOINT + "?brandId=" + brand.getId() + "&sort=latest&page=0&size=20";
+            String listCacheKey = "product:list:brandId=" + brand.getId() + ":sort=latest:page=0:size=20";
+
+            ParameterizedTypeReference<ApiResponse<PageResponse<ProductDto.ListResponse>>> responseType = new ParameterizedTypeReference<>() {};
+            testRestTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // act (캐시 HIT)
+            ResponseEntity<ApiResponse<PageResponse<ProductDto.ListResponse>>> response =
+                    testRestTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(redisTemplate.hasKey(listCacheKey)).isTrue()
+            );
+        }
+
     }
 
     @DisplayName("GET /api/v1/products/{productId}")
