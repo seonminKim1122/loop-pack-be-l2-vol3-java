@@ -6,6 +6,9 @@ import java.util.Optional;
 
 public interface ProductCacheStore {
 
+    long DETAIL_TTL_MINUTES = 5;
+    long LIST_TTL_SECONDS = 30;
+
     Optional<ProductInfo> get(Long productId);
 
     void put(Long productId, ProductInfo productInfo);

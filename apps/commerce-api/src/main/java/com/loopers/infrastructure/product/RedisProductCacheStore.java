@@ -19,8 +19,6 @@ public class RedisProductCacheStore implements ProductCacheStore {
 
     private static final String DETAIL_KEY_PREFIX = "product:detail:";
     private static final String LIST_KEY_PREFIX = "product:list:";
-    private static final long DETAIL_TTL_MINUTES = 5;
-    private static final long LIST_TTL_SECONDS = 30;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
