@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +33,8 @@ class ProductFacadeTest {
     ProductRepository productRepository = mock(ProductRepository.class);
     LikeRepository likeRepository = mock(LikeRepository.class);
     ProductAssembler productAssembler = new ProductAssembler();
-    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler);
+    ProductCacheStore productCachePort = mock(ProductCacheStore.class);
+    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler, productCachePort);
 
     @DisplayName("상품 등록 시, ")
     @Nested
@@ -177,6 +179,7 @@ class ProductFacadeTest {
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
             Brand brand = Brand.of("나이키", null);
 
+            when(productCachePort.get(productId)).thenReturn(Optional.empty());
             when(productRepository.findById(productId)).thenReturn(Optional.of(product));
             when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
 
@@ -196,6 +199,7 @@ class ProductFacadeTest {
             Long productId = 1L;
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 999L);
 
+            when(productCachePort.get(productId)).thenReturn(Optional.empty());
             when(productRepository.findById(productId)).thenReturn(Optional.of(product));
             when(brandRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -211,6 +215,7 @@ class ProductFacadeTest {
         void throwsCoreException_whenProductNotFound() {
             // arrange
             Long productId = 999L;
+            when(productCachePort.get(productId)).thenReturn(Optional.empty());
             when(productRepository.findById(productId)).thenReturn(Optional.empty());
 
             // act
@@ -220,6 +225,43 @@ class ProductFacadeTest {
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
+        }
+
+        @DisplayName("캐시 HIT 시, DB 조회 없이 캐시된 ProductInfo 를 반환한다.")
+        @Test
+        void returnsCachedProductInfo_whenCacheHit() {
+            // arrange
+            Long productId = 1L;
+            ProductInfo cached = new ProductInfo("나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            when(productCachePort.get(productId)).thenReturn(Optional.of(cached));
+
+            // act
+            ProductInfo result = productFacade.getDetail(productId);
+
+            // assert
+            assertThat(result.name()).isEqualTo("나이키 에어맥스");
+            assertThat(result.brand()).isEqualTo("나이키");
+            verify(productRepository, never()).findById(productId);
+        }
+
+        @DisplayName("캐시 MISS 시, DB 에서 조회 후 캐시에 저장한다.")
+        @Test
+        void savesToCache_whenCacheMiss() {
+            // arrange
+            Long productId = 1L;
+            Long brandId = 1L;
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
+            Brand brand = Brand.of("나이키", null);
+
+            when(productCachePort.get(productId)).thenReturn(Optional.empty());
+            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
+
+            // act
+            productFacade.getDetail(productId);
+
+            // assert
+            verify(productCachePort).put(eq(productId), any(ProductInfo.class));
         }
     }
 
@@ -256,6 +298,21 @@ class ProductFacadeTest {
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
+        }
+
+        @DisplayName("상품 수정 시, 캐시가 삭제된다.")
+        @Test
+        void evictsCache_whenProductUpdated() {
+            // arrange
+            Long productId = 1L;
+            Product product = mock(Product.class);
+            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+            // act
+            productFacade.update(productId, "나이키 줌", "새 설명", 20, 200000);
+
+            // assert
+            verify(productCachePort).evict(productId);
         }
     }
 

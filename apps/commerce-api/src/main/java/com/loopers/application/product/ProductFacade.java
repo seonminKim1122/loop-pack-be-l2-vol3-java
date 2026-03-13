@@ -28,6 +28,7 @@ public class ProductFacade {
     private final ProductRepository productRepository;
     private final LikeRepository likeRepository;
     private final ProductAssembler productAssembler;
+    private final ProductCacheStore productCachePort;
 
     @Transactional
     public void register(String name, String description, Integer stock, Integer price, Long brandId) {
@@ -49,6 +50,8 @@ public class ProductFacade {
         Stock stockVo = Stock.from(stock);
         Price priceVo = Price.from(price);
         product.update(name, description, stockVo, priceVo);
+
+        productCachePort.evict(productId);
     }
 
     @Transactional(readOnly = true)
@@ -86,11 +89,20 @@ public class ProductFacade {
 
     @Transactional(readOnly = true)
     public ProductInfo getDetail(Long productId) {
+        Optional<ProductInfo> cached = productCachePort.get(productId);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
         Optional<Brand> optionalBrand = brandRepository.findById(product.brandId());
-        return ProductInfo.of(product, optionalBrand.map(Brand::name).orElse(null));
+        ProductInfo productInfo = ProductInfo.of(product, optionalBrand.map(Brand::name).orElse(null));
+
+        productCachePort.put(productId, productInfo);
+
+        return productInfo;
     }
 
     @Transactional
