@@ -31,7 +31,8 @@ class ProductFacadeTest {
     ProductRepository productRepository = mock(ProductRepository.class);
     LikeRepository likeRepository = mock(LikeRepository.class);
     ProductAssembler productAssembler = new ProductAssembler();
-    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler);
+    ProductQueryService productQueryService = mock(ProductQueryService.class);
+    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler, productQueryService);
 
     @DisplayName("상품 등록 시, ")
     @Nested
@@ -130,64 +131,43 @@ class ProductFacadeTest {
             // assert
             assertThat(result.content()).isEmpty();
         }
+
+        @DisplayName("브랜드 필터 + 정렬 조회 시, ProductQueryService 에 위임한다.")
+        @Test
+        void delegatesToProductQueryService_whenBrandIdAndSortGiven() {
+            // arrange
+            Long brandId = 1L;
+            PageRequest pageable = PageRequest.of(0, 20);
+            PageResponse<ProductInfo> expected = new PageResponse<>(List.of(), 0, 20, 0);
+            when(productQueryService.getList(pageable, brandId, "latest")).thenReturn(expected);
+
+            // act
+            PageResponse<ProductInfo> result = productFacade.getList(pageable, brandId, "latest");
+
+            // assert
+            verify(productQueryService).getList(eq(pageable), eq(brandId), eq("latest"));
+            assertThat(result).isEqualTo(expected);
+        }
     }
 
     @DisplayName("상품 상세 조회 시, ")
     @Nested
     class GetDetail {
 
-        @DisplayName("존재하는 상품이면, 브랜드명과 좋아요 수를 포함한 상품 정보를 반환한다.")
+        @DisplayName("존재하는 상품이면, ProductQueryService 에 위임한다.")
         @Test
-        void returnsProductInfo_whenProductExists() {
+        void delegatesToProductQueryService_whenProductExists() {
             // arrange
             Long productId = 1L;
-            Long brandId = 1L;
-            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), brandId);
-            Brand brand = Brand.of("나이키", null);
-
-            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
-            when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
+            ProductInfo expected = new ProductInfo("나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            when(productQueryService.getDetail(productId)).thenReturn(expected);
 
             // act
             ProductInfo result = productFacade.getDetail(productId);
 
             // assert
-            assertThat(result.name()).isEqualTo("나이키 에어맥스");
-            assertThat(result.brand()).isEqualTo("나이키");
-            assertThat(result.likeCount()).isEqualTo(0L);
-        }
-
-        @DisplayName("브랜드가 존재하지 않는 상품이면, 브랜드명이 null인 상품 정보를 반환한다.")
-        @Test
-        void returnsProductInfoWithNullBrand_whenBrandNotFound() {
-            // arrange
-            Long productId = 1L;
-            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(150000), 999L);
-
-            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
-            when(brandRepository.findById(999L)).thenReturn(Optional.empty());
-
-            // act
-            ProductInfo result = productFacade.getDetail(productId);
-
-            // assert
-            assertThat(result.brand()).isNull();
-        }
-
-        @DisplayName("존재하지 않는 상품이면, CoreException 이 발생한다.")
-        @Test
-        void throwsCoreException_whenProductNotFound() {
-            // arrange
-            Long productId = 999L;
-            when(productRepository.findById(productId)).thenReturn(Optional.empty());
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () ->
-                productFacade.getDetail(productId)
-            );
-
-            // assert
-            assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
+            verify(productQueryService).getDetail(productId);
+            assertThat(result).isEqualTo(expected);
         }
     }
 
@@ -224,6 +204,21 @@ class ProductFacadeTest {
 
             // assert
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
+        }
+
+        @DisplayName("상품 수정 시, ProductQueryService.evict 를 호출한다.")
+        @Test
+        void evictsCache_whenProductUpdated() {
+            // arrange
+            Long productId = 1L;
+            Product product = mock(Product.class);
+            when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+            // act
+            productFacade.update(productId, "나이키 줌", "새 설명", 20, 200000);
+
+            // assert
+            verify(productQueryService).evict(productId);
         }
     }
 

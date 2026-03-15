@@ -6,7 +6,8 @@ import org.springframework.data.domain.Sort;
 
 public enum ProductSortType {
     LATEST(Sort.by(Sort.Direction.DESC, "createdAt")), // 또는 "createdAt"
-    PRICE_ASC(Sort.by(Sort.Direction.ASC, "price"));
+    PRICE_ASC(Sort.by(Sort.Direction.ASC, "price")),
+    LIKE_COUNT(Sort.by(Sort.Direction.DESC, "likeCount"));
 
     private final Sort sort;
 
