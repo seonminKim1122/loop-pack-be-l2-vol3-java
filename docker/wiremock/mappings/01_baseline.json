@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/v1/payments"
+  },
+  "response": {
+    "status": 200,
+    "delayDistribution": {
+      "type": "uniform",
+      "lower": 100,
+      "upper": 500
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "data": {
+        "transactionKey": "20260318:TR:mock01",
+        "status": "PENDING",
+        "reason": null
+      }
+    }
+  }
+}
