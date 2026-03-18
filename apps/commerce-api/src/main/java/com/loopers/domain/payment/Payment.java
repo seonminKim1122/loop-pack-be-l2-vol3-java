@@ -31,6 +31,12 @@ public class Payment extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
+    @Column(name = "transaction_key")
+    private String transactionKey;
+
+    @Column(name = "reason")
+    private String reason;
+
     private Payment(String orderId, Long userId, String cardType, String cardNo, Long amount) {
         this.orderId = orderId;
         this.userId = userId;
@@ -86,5 +92,14 @@ public class Payment extends BaseEntity {
 
     public PaymentStatus status() {
         return status;
+    }
+
+    public void applyPgResult(String transactionKey, PaymentStatus status, String reason) {
+        if (this.status == PaymentStatus.SUCCESS) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 완료된 결제입니다.");
+        }
+        this.transactionKey = transactionKey;
+        this.status = status;
+        this.reason = reason;
     }
 }

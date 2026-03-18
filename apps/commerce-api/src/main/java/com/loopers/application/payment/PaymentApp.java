@@ -4,6 +4,7 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +28,13 @@ public class PaymentApp {
         Payment payment = Payment.of(orderId, userId, cardType, cardNo, order.paymentAmount());
         paymentRepository.save(payment);
         return PaymentInfo.from(payment);
+    }
+
+    @Transactional
+    public void applyPgResponse(Long paymentId, String transactionKey, String status, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "찾을 수 없는 결제번호입니다."));
+
+        payment.applyPgResult(transactionKey, PaymentStatus.valueOf(status), reason);
     }
 }

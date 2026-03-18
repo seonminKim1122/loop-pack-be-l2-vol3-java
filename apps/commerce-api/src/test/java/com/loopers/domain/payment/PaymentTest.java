@@ -151,4 +151,52 @@ class PaymentTest {
             assertThat(result.getCustomMessage()).isEqualTo("결제금액은 양의 정수여야 합니다.");
         }
     }
+
+    @DisplayName("PG 결과를 반영할 때, ")
+    @Nested
+    class ApplyPgResult {
+
+        @DisplayName("PENDING 상태이면, transactionKey, status, reason 이 반영된다.")
+        @Test
+        void appliesPgResult_whenStatusIsPending() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+
+            // act
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
+
+            // assert
+            assertThat(payment.status()).isEqualTo(PaymentStatus.SUCCESS);
+        }
+
+        @DisplayName("FAILED 상태이면, 재시도로 결과를 덮어쓸 수 있다.")
+        @Test
+        void appliesPgResult_whenStatusIsFailed() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.FAILED, "잔액 부족");
+
+            // act
+            payment.applyPgResult("tx-key-002", PaymentStatus.SUCCESS, null);
+
+            // assert
+            assertThat(payment.status()).isEqualTo(PaymentStatus.SUCCESS);
+        }
+
+        @DisplayName("SUCCESS 상태이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenStatusIsSuccess() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                payment.applyPgResult("tx-key-002", PaymentStatus.SUCCESS, null)
+            );
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("이미 완료된 결제입니다.");
+        }
+    }
 }
