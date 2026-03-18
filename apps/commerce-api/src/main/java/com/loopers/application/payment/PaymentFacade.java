@@ -2,6 +2,7 @@ package com.loopers.application.payment;
 
 import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
+import com.loopers.support.error.CoreException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -21,13 +22,14 @@ public class PaymentFacade {
         PaymentInfo paymentInfo = paymentApp.pay(orderId, cardType, cardNo, userId);
 
         // 외부 PG사 연동
-        PgPaymentDto.PaymentRequest request = PgPaymentDto.PaymentRequest.of(
-                paymentInfo,
-                callbackUrl);
-        PgPaymentDto.TransactionResponse response = pgClient.requestPayment(request);
-
-        // PG사 응답 반영
-        paymentApp.applyPgResponse(paymentInfo.orderId(), response.transactionKey(), response.status().name(), response.reason());
+        PgPaymentDto.PaymentRequest request = PgPaymentDto.PaymentRequest.of(paymentInfo, callbackUrl);
+        try {
+            PgPaymentDto.TransactionResponse response = pgClient.requestPayment(request);
+            paymentApp.applyPgResponse(paymentInfo.orderId(), response.transactionKey(), response.status().name(), response.reason());
+        } catch (CoreException e) {
+            paymentApp.applyPgResponse(paymentInfo.orderId(), null, "FAILED", e.getCustomMessage());
+            throw e;
+        }
     }
 
     public void handleCallback(String transactionKey, String orderId, String status, String reason) {
