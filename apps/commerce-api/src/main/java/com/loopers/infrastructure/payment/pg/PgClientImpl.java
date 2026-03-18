@@ -15,6 +15,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Optional;
+
 @Component
 public class PgClientImpl implements PgClient {
 
@@ -55,5 +57,51 @@ public class PgClientImpl implements PgClient {
             // 500: PG 서버 일시 장애 - TODO: 재시도 전략 추가 필요
             throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
         }
+    }
+
+    @Override
+    public Optional<PgPaymentDto.TransactionResponse> getTransaction(String transactionKey) {
+        HttpEntity<Void> entity = new HttpEntity<>(authHeaders());
+        try {
+            ResponseEntity<PgApiResponse<PgPaymentDto.TransactionResponse>> response = restTemplate.exchange(
+                    baseUrl + PAYMENT_PATH + "/" + transactionKey,
+                    HttpMethod.GET,
+                    entity,
+                    new ParameterizedTypeReference<>() {}
+            );
+            return Optional.ofNullable(response.getBody().data());
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty();
+        } catch (HttpClientErrorException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "PG 트랜잭션 조회 요청이 잘못되었습니다.");
+        } catch (HttpServerErrorException e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
+        }
+    }
+
+    @Override
+    public Optional<PgPaymentDto.TransactionListResponse> getTransactionsByOrderId(String orderId) {
+        HttpEntity<Void> entity = new HttpEntity<>(authHeaders());
+        try {
+            ResponseEntity<PgApiResponse<PgPaymentDto.TransactionListResponse>> response = restTemplate.exchange(
+                    baseUrl + PAYMENT_PATH + "?orderId=" + orderId,
+                    HttpMethod.GET,
+                    entity,
+                    new ParameterizedTypeReference<>() {}
+            );
+            return Optional.ofNullable(response.getBody().data());
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty();
+        } catch (HttpClientErrorException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "PG 트랜잭션 목록 조회 요청이 잘못되었습니다.");
+        } catch (HttpServerErrorException e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
+        }
+    }
+
+    private HttpHeaders authHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-USER-ID", merchantId);
+        return headers;
     }
 }

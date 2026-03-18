@@ -2,6 +2,8 @@ package com.loopers.application.payment.pg;
 
 import com.loopers.application.payment.PaymentInfo;
 
+import java.util.List;
+
 public class PgPaymentDto {
 
     public static record PaymentRequest(
@@ -26,6 +28,11 @@ public class PgPaymentDto {
             TransactionStatus status,
             String reason
     ){}
+
+    public static record TransactionListResponse(
+            String orderId,
+            List<TransactionResponse> transactions
+    ) {}
 
     public enum TransactionStatus {
         PENDING,

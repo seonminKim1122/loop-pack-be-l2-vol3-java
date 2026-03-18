@@ -6,6 +6,8 @@ import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
 import com.loopers.interfaces.auth.LoginRequired;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,4 +32,6 @@ public class PaymentController {
         paymentFacade.handleCallback(request.transactionKey(), request.orderId(), request.status(), request.reason());
         return ApiResponse.success(null);
     }
+
+    // TODO: 결제 상태 조회 API - 클라이언트 폴링용 (GET /api/v1/payments/{orderId})
 }

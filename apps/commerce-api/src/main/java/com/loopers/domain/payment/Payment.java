@@ -32,7 +32,7 @@ public class Payment extends BaseEntity {
     private PaymentStatus status;
 
     @Column(name = "transaction_key")
-    private String transactionKey;
+    public String transactionKey;
 
     @Column(name = "reason")
     private String reason;
@@ -92,6 +92,10 @@ public class Payment extends BaseEntity {
 
     public PaymentStatus status() {
         return status;
+    }
+
+    public String transactionKey() {
+        return transactionKey;
     }
 
     public void applyPgResult(String transactionKey, PaymentStatus status, String reason) {
