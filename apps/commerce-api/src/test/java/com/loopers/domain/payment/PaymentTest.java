@@ -152,6 +152,58 @@ class PaymentTest {
         }
     }
 
+    @DisplayName("결제를 재시도할 때 (reset), ")
+    @Nested
+    class Reset {
+
+        @DisplayName("FAILED 상태이면, 카드 정보가 업데이트되고 status 가 PENDING 으로 변경된다.")
+        @Test
+        void resetsToLending_andUpdatesCardInfo_whenStatusIsFailed() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.FAILED, "잔액 부족");
+
+            // act
+            payment.reset("국민카드", "9999-8888-7777-6666");
+
+            // assert
+            assertThat(payment.status()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(payment.cardType()).isEqualTo("국민카드");
+            assertThat(payment.cardNo()).isEqualTo("9999-8888-7777-6666");
+        }
+
+        @DisplayName("SUCCESS 상태이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenStatusIsSuccess() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                payment.reset("국민카드", "9999-8888-7777-6666")
+            );
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("이미 완료된 결제입니다.");
+        }
+
+        @DisplayName("PENDING 상태이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenStatusIsPending() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                payment.reset("국민카드", "9999-8888-7777-6666")
+            );
+
+            // assert
+            assertThat(result.getCustomMessage()).isEqualTo("이미 진행 중인 결제입니다.");
+        }
+    }
+
     @DisplayName("PG 결과를 반영할 때, ")
     @Nested
     class ApplyPgResult {

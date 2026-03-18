@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @RequiredArgsConstructor
 @Component
 public class PaymentApp {
@@ -24,6 +26,18 @@ public class PaymentApp {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "찾을 수 없는 주문번호입니다."));
 
         if (!order.userId().equals(userId)) throw new CoreException(ErrorType.FORBIDDEN, "본인의 주문에 대해서만 결제 가능합니다.");
+
+        Optional<Payment> existingPayment = paymentRepository.findByOrderId(orderId);
+        if (existingPayment.isPresent()) {
+            Payment payment = existingPayment.get();
+            if (payment.status() == PaymentStatus.SUCCESS) {
+                throw new CoreException(ErrorType.CONFLICT, "이미 결제된 주문입니다.");
+            }
+            if (payment.status() == PaymentStatus.FAILED) {
+                payment.reset(cardType, cardNo);
+            }
+            return PaymentInfo.from(payment);
+        }
 
         Payment payment = Payment.of(orderId, userId, cardType, cardNo, order.paymentAmount());
         paymentRepository.save(payment);

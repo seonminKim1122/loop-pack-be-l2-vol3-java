@@ -102,4 +102,18 @@ public class Payment extends BaseEntity {
         this.status = status;
         this.reason = reason;
     }
+
+    public void reset(String cardType, String cardNo) {
+        if (this.status == PaymentStatus.SUCCESS) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 완료된 결제입니다.");
+        }
+        if (this.status == PaymentStatus.PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 진행 중인 결제입니다.");
+        }
+        this.cardType = cardType;
+        this.cardNo = cardNo;
+        this.transactionKey = null;
+        this.reason = null;
+        this.status = PaymentStatus.PENDING;
+    }
 }

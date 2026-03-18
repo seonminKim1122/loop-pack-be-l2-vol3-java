@@ -29,4 +29,8 @@ public class PaymentFacade {
         // PG사 응답 반영
         paymentApp.applyPgResponse(paymentInfo.orderId(), response.transactionKey(), response.status().name(), response.reason());
     }
+
+    public void handleCallback(String transactionKey, String orderId, String status, String reason) {
+        paymentApp.applyPgResponse(orderId, transactionKey, status, reason);
+    }
 }

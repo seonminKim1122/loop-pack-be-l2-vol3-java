@@ -7,4 +7,14 @@ public class PaymentDto {
             String cardType,
             String cardNo
     ){}
+
+    public static record CallbackRequest(
+            String transactionKey,
+            String orderId,
+            String cardType,
+            String cardNo,
+            Long amount,
+            String status,
+            String reason
+    ){}
 }
