@@ -27,6 +27,6 @@ public class PaymentFacade {
         PgPaymentDto.TransactionResponse response = pgClient.requestPayment(request);
 
         // PG사 응답 반영
-        paymentApp.applyPgResponse(paymentInfo.paymentId(), response.transactionKey(), response.status().name(), response.reason());
+        paymentApp.applyPgResponse(paymentInfo.orderId(), response.transactionKey(), response.status().name(), response.reason());
     }
 }

@@ -31,8 +31,8 @@ public class PaymentApp {
     }
 
     @Transactional
-    public void applyPgResponse(Long paymentId, String transactionKey, String status, String reason) {
-        Payment payment = paymentRepository.findById(paymentId)
+    public void applyPgResponse(String orderId, String transactionKey, String status, String reason) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "찾을 수 없는 결제번호입니다."));
 
         payment.applyPgResult(transactionKey, PaymentStatus.valueOf(status), reason);
