@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.payment;
 
 import com.loopers.application.payment.PaymentFacade;
+import com.loopers.application.payment.PaymentInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
@@ -33,5 +34,14 @@ public class PaymentController {
         return ApiResponse.success(null);
     }
 
-    // TODO: 결제 상태 조회 API - 클라이언트 폴링용 (GET /api/v1/payments/{orderId})
+    @LoginRequired
+    @GetMapping("/api/v1/payments/{orderId}")
+    public ApiResponse<PaymentDto.PaymentResponse> getPayment(@CurrentUser AuthenticatedUser user,
+                                                              @PathVariable String orderId) {
+        PaymentInfo paymentInfo = paymentFacade.getPayment(orderId, user.id());
+        return ApiResponse.success(new PaymentDto.PaymentResponse(
+                paymentInfo.orderId(),
+                paymentInfo.status().name(),
+                paymentInfo.reason()));
+    }
 }

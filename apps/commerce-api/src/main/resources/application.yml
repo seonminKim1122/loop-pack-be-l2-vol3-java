@@ -42,7 +42,7 @@ payment:
     merchant-id: loopers
   reconciliation:
     interval-ms: 60000
-    pending-threshold-minutes: 10
+    pending-threshold-seconds: 10
 
 ---
 spring:

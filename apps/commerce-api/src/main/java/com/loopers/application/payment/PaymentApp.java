@@ -44,6 +44,16 @@ public class PaymentApp {
         return PaymentInfo.from(payment);
     }
 
+    @Transactional(readOnly = true)
+    public PaymentInfo getPayment(String orderId, Long userId) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "찾을 수 없는 결제번호입니다."));
+
+        if (!payment.userId().equals(userId)) throw new CoreException(ErrorType.NOT_FOUND, "찾을 수 없는 결제번호입니다.");
+
+        return PaymentInfo.from(payment);
+    }
+
     @Transactional
     public void applyPgResponse(String orderId, String transactionKey, String status, String reason) {
         Payment payment = paymentRepository.findByOrderId(orderId)

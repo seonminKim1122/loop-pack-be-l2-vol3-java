@@ -179,6 +179,69 @@ class PaymentAppTest {
         }
     }
 
+    @DisplayName("결제 조회 시, ")
+    @Nested
+    class GetPayment {
+
+        @DisplayName("본인의 orderId 이면, PaymentInfo 를 반환한다.")
+        @Test
+        void returnsPaymentInfo_whenOwnerRequests() {
+            // arrange
+            String orderId = "20260318-ABCD12";
+            Long userId = 1L;
+
+            Payment payment = mock(Payment.class);
+            when(payment.userId()).thenReturn(userId);
+            when(payment.orderId()).thenReturn(orderId);
+            when(payment.status()).thenReturn(PaymentStatus.SUCCESS);
+            when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+
+            // act
+            PaymentInfo result = paymentApp.getPayment(orderId, userId);
+
+            // assert
+            assertThat(result).isNotNull();
+            assertThat(result.orderId()).isEqualTo(orderId);
+        }
+
+        @DisplayName("존재하지 않는 orderId 이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenPaymentNotFound() {
+            // arrange
+            String orderId = "20260318-NOTFOUND";
+            when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                paymentApp.getPayment(orderId, 1L)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("다른 사용자의 orderId 이면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenNotOwner() {
+            // arrange
+            String orderId = "20260318-ABCD12";
+            Long userId = 1L;
+            Long anotherUserId = 2L;
+
+            Payment payment = mock(Payment.class);
+            when(payment.userId()).thenReturn(anotherUserId);
+            when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(payment));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                paymentApp.getPayment(orderId, userId)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
     @DisplayName("PG 응답 반영 시, ")
     @Nested
     class ApplyPgResponse {

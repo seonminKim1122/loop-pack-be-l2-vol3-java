@@ -2,10 +2,14 @@ package com.loopers.application.payment;
 
 import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import java.time.ZonedDateTime;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -30,6 +34,24 @@ public class PaymentFacade {
             paymentApp.applyPgResponse(paymentInfo.orderId(), null, "FAILED", e.getCustomMessage());
             throw e;
         }
+    }
+
+    public PaymentInfo getPayment(String orderId, Long userId) {
+        PaymentInfo paymentInfo = paymentApp.getPayment(orderId, userId);
+
+        if (paymentInfo.status() == PaymentStatus.PENDING
+                && paymentInfo.transactionKey() != null
+                && paymentInfo.createdAt().plusSeconds(5).isBefore(ZonedDateTime.now())) {
+
+            Optional<PgPaymentDto.TransactionResponse> pgResponse = pgClient.getTransaction(paymentInfo.transactionKey());
+            if (pgResponse.isPresent()) {
+                PgPaymentDto.TransactionResponse pg = pgResponse.get();
+                paymentApp.applyPgResponse(orderId, pg.transactionKey(), pg.status().name(), pg.reason());
+                return paymentApp.getPayment(orderId, userId);
+            }
+        }
+
+        return paymentInfo;
     }
 
     public void handleCallback(String transactionKey, String orderId, String status, String reason) {

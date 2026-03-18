@@ -8,6 +8,12 @@ public class PaymentDto {
             String cardNo
     ){}
 
+    public static record PaymentResponse(
+            String orderId,
+            String status,
+            String reason
+    ){}
+
     public static record CallbackRequest(
             String transactionKey,
             String orderId,

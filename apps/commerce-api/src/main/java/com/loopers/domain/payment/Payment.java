@@ -98,6 +98,10 @@ public class Payment extends BaseEntity {
         return transactionKey;
     }
 
+    public String reason() {
+        return reason;
+    }
+
     public void applyPgResult(String transactionKey, PaymentStatus status, String reason) {
         if (this.status == PaymentStatus.SUCCESS) {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 완료된 결제입니다.");
