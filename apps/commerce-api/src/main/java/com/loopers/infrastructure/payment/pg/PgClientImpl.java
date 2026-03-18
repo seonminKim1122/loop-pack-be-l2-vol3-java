@@ -2,10 +2,17 @@ package com.loopers.infrastructure.payment.pg;
 
 import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
@@ -32,6 +39,21 @@ public class PgClientImpl implements PgClient {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-USER-ID", merchantId);
         HttpEntity<PgPaymentDto.PaymentRequest> entity = new HttpEntity<>(request, headers);
-        return restTemplate.postForObject(baseUrl + PAYMENT_PATH, entity, PgPaymentDto.TransactionResponse.class);
+
+        try {
+            ResponseEntity<PgApiResponse<PgPaymentDto.TransactionResponse>> response = restTemplate.exchange(
+                    baseUrl + PAYMENT_PATH,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<>() {}
+            );
+            return response.getBody().data();
+        } catch (HttpClientErrorException e) {
+            // 400: 요청 파라미터 자체가 잘못된 경우 - 재시도 불가
+            throw new CoreException(ErrorType.BAD_REQUEST, "PG 결제 요청이 잘못되었습니다.");
+        } catch (HttpServerErrorException e) {
+            // 500: PG 서버 일시 장애 - TODO: 재시도 전략 추가 필요
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
+        }
     }
 }
