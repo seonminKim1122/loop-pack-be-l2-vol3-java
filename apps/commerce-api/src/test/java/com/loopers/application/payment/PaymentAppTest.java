@@ -99,9 +99,9 @@ class PaymentAppTest {
             verify(paymentRepository, never()).save(any());
         }
 
-        @DisplayName("이미 PENDING 상태인 Payment 가 존재하면, 기존 PaymentInfo 를 반환한다.")
+        @DisplayName("이미 PENDING 상태인 Payment 가 존재하면, CoreException 이 발생한다.")
         @Test
-        void returnsExistingPaymentInfo_whenPaymentIsPending() {
+        void throwsCoreException_whenPaymentIsPending() {
             // arrange
             String orderId = "20260318-ABCD12";
             Long userId = 1L;
@@ -119,10 +119,13 @@ class PaymentAppTest {
             when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(existingPayment));
 
             // act
-            PaymentInfo result = paymentApp.pay(orderId, "신한카드", "1234-5678-9012-3456", userId);
+            CoreException result = assertThrows(CoreException.class, () ->
+                    paymentApp.pay(orderId, "신한카드", "1234-5678-9012-3456", userId)
+            );
 
             // assert
-            assertThat(result.orderId()).isEqualTo(orderId);
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+            assertThat(result.getCustomMessage()).isEqualTo("이미 진행 중인 결제입니다.");
             verify(paymentRepository, never()).save(any());
         }
 
