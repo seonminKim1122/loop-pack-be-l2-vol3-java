@@ -53,11 +53,15 @@ public class PaymentFacade {
                 && paymentInfo.transactionKey() != null
                 && paymentInfo.createdAt().plusSeconds(5).isBefore(ZonedDateTime.now())) {
 
-            Optional<PgPaymentDto.TransactionResponse> pgResponse = pgClient.getTransaction(paymentInfo.transactionKey());
-            if (pgResponse.isPresent()) {
-                PgPaymentDto.TransactionResponse pg = pgResponse.get();
-                paymentApp.applyPgResponse(orderId, pg.transactionKey(), pg.status().name(), pg.reason());
-                return paymentApp.getPayment(orderId, userId);
+            try {
+                Optional<PgPaymentDto.TransactionResponse> pgResponse = pgClient.getTransaction(paymentInfo.transactionKey());
+                if (pgResponse.isPresent()) {
+                    PgPaymentDto.TransactionResponse pg = pgResponse.get();
+                    paymentApp.applyPgResponse(orderId, pg.transactionKey(), pg.status().name(), pg.reason());
+                    return paymentApp.getPayment(orderId, userId);
+                }
+            } catch (CoreException ignored) {
+                // PG 장애 시 현재 DB 상태 반환 — 조회는 best-effort, reconciliation이 동기화
             }
         }
 
