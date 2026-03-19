@@ -33,7 +33,8 @@
     },
     {
       "id": 2,
-      "title": "우리 API 응답 시간 분포 (p50 / p95 / p99)",
+      "title": "URI별 응답 시간 p95 (결제 vs 헬스체크)",
+      "description": "PG 지연 중 결제(payment)만 느려지는지, 브랜드 조회(health)까지 느려지는지 비교 — 브랜드가 느려지면 스레드 고갈로 판단",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "fieldConfig": {
@@ -41,16 +42,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=\"commerce-api\"}[1m])) by (le))",
-          "legendFormat": "p50"
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"commerce-api\", uri=\"/api/v1/payments\"}[1m])) by (le))",
+          "legendFormat": "결제 p95"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"commerce-api\"}[1m])) by (le))",
-          "legendFormat": "p95"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"commerce-api\"}[1m])) by (le))",
-          "legendFormat": "p99"
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"commerce-api\", uri=\"/api/v1/brands/{brandId}\"}[1m])) by (le))",
+          "legendFormat": "브랜드 조회 p95"
         }
       ],
       "datasource": { "type": "prometheus", "uid": "prometheus" }
@@ -96,6 +93,31 @@
         {
           "expr": "sum(rate(http_client_requests_seconds_count{application=\"commerce-api\", outcome=\"SERVER_ERROR\"}[1m]))",
           "legendFormat": "PG API 5xx"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "prometheus" }
+    }
+    ,{
+      "id": 5,
+      "title": "HikariCP 커넥션 풀",
+      "description": "pending > 0 이 되면 DB 커넥션도 고갈 — 스레드 고갈의 2차 파급 확인용",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{application=\"commerce-api\"}",
+          "legendFormat": "active"
+        },
+        {
+          "expr": "hikaricp_connections_pending{application=\"commerce-api\"}",
+          "legendFormat": "pending"
+        },
+        {
+          "expr": "hikaricp_connections_max{application=\"commerce-api\"}",
+          "legendFormat": "max"
         }
       ],
       "datasource": { "type": "prometheus", "uid": "prometheus" }
