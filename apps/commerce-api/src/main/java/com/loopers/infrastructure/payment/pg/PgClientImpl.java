@@ -73,9 +73,6 @@ public class PgClientImpl implements PgClient {
         return new PgPaymentDto.TransactionResponse(null, PgPaymentDto.TransactionStatus.FAILED, null);
     }
 
-    private Optional<PgPaymentDto.TransactionResponse> getTransactionFallback(String transactionKey, Exception e) {
-        return Optional.empty();
-    }
 
     @CircuitBreaker(name = "pg", fallbackMethod = "getTransactionFallback")
     @Override
@@ -98,6 +95,10 @@ public class PgClientImpl implements PgClient {
         } catch (ResourceAccessException e) {
             throw new CoreException(ErrorType.BAD_GATEWAY, "PG 서버 응답 시간이 초과되었습니다.");
         }
+    }
+
+    private Optional<PgPaymentDto.TransactionResponse> getTransactionFallback(String transactionKey, Exception e) {
+        throw new CoreException(ErrorType.BAD_GATEWAY, "PG 서버에 연결할 수 없습니다.");
     }
 
     @CircuitBreaker(name = "pg")
