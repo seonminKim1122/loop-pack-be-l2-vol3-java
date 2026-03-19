@@ -4,11 +4,9 @@ import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
-import com.loopers.domain.payment.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -21,8 +19,8 @@ public class PaymentReconciliationApp {
 
     private final PaymentRepository paymentRepository;
     private final PgClient pgClient;
+    private final PaymentApp paymentApp;
 
-    @Transactional
     public void reconcile(ZonedDateTime threshold) {
         List<Payment> stalePayments = paymentRepository.findPendingPaymentsOlderThan(threshold);
         for (Payment payment : stalePayments) {
@@ -49,20 +47,20 @@ public class PaymentReconciliationApp {
             return;
         }
         PgPaymentDto.TransactionResponse pg = response.get();
-        payment.applyPgResult(pg.transactionKey(), PaymentStatus.valueOf(pg.status().name()), pg.reason());
+        paymentApp.applyPgResponse(payment.orderId(), pg.transactionKey(), pg.status().name(), pg.reason());
     }
 
     private void reconcileByOrderId(Payment payment) {
         Optional<PgPaymentDto.TransactionListResponse> listResponse = pgClient.getTransactionsByOrderId(payment.orderId());
         if (listResponse.isEmpty()) {
-            payment.applyPgResult(null, PaymentStatus.FAILED, "PG 내역 없음");
+            paymentApp.applyPgResponse(payment.orderId(), null, "FAILED", "PG 내역 없음");
             return;
         }
 
         List<PgPaymentDto.TransactionResponse> transactions = listResponse.get().transactions();
 
         if (transactions.isEmpty()) {
-            payment.applyPgResult(null, PaymentStatus.FAILED, "PG 내역 없음");
+            paymentApp.applyPgResponse(payment.orderId(), null, "FAILED", "PG 내역 없음");
             return;
         }
 
@@ -71,7 +69,7 @@ public class PaymentReconciliationApp {
                 .findFirst();
         if (success.isPresent()) {
             PgPaymentDto.TransactionResponse pg = success.get();
-            payment.applyPgResult(pg.transactionKey(), PaymentStatus.SUCCESS, pg.reason());
+            paymentApp.applyPgResponse(payment.orderId(), pg.transactionKey(), pg.status().name(), pg.reason());
             return;
         }
 
@@ -79,7 +77,7 @@ public class PaymentReconciliationApp {
                 .allMatch(t -> t.status() == PgPaymentDto.TransactionStatus.FAILED);
         if (allFailed) {
             PgPaymentDto.TransactionResponse pg = transactions.get(0);
-            payment.applyPgResult(pg.transactionKey(), PaymentStatus.FAILED, pg.reason());
+            paymentApp.applyPgResponse(payment.orderId(), pg.transactionKey(), pg.status().name(), pg.reason());
         }
         // PENDING만 있으면 → skip (다음 사이클에서 재확인)
     }

@@ -4,7 +4,6 @@ import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
-import com.loopers.domain.payment.PaymentStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,8 +22,9 @@ class PaymentReconciliationAppTest {
 
     PaymentRepository paymentRepository = mock(PaymentRepository.class);
     PgClient pgClient = mock(PgClient.class);
+    PaymentApp paymentApp = mock(PaymentApp.class);
 
-    PaymentReconciliationApp reconciliationApp = new PaymentReconciliationApp(paymentRepository, pgClient);
+    PaymentReconciliationApp reconciliationApp = new PaymentReconciliationApp(paymentRepository, pgClient, paymentApp);
 
     @DisplayName("Reconciliation 실행 시, ")
     @Nested
@@ -50,10 +50,10 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment).applyPgResult(transactionKey, PaymentStatus.SUCCESS, "정상 승인되었습니다.");
+            verify(paymentApp).applyPgResponse(orderId, transactionKey, "SUCCESS", "정상 승인되었습니다.");
         }
 
-        @DisplayName("transactionKey 가 있고 PG에서 404 응답이면, applyPgResult 가 호출되지 않는다.")
+        @DisplayName("transactionKey 가 있고 PG에서 404 응답이면, applyPgResponse 가 호출되지 않는다.")
         @Test
         void skips_whenTransactionKeyExistsButPgReturns404() {
             // arrange
@@ -68,10 +68,10 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment, never()).applyPgResult(any(), any(), any());
+            verify(paymentApp, never()).applyPgResponse(any(), any(), any(), any());
         }
 
-        @DisplayName("transactionKey 가 없고 PG 목록에 SUCCESS 가 있으면, applyPgResult 가 SUCCESS 로 반영된다.")
+        @DisplayName("transactionKey 가 없고 PG 목록에 SUCCESS 가 있으면, applyPgResponse 가 SUCCESS 로 반영된다.")
         @Test
         void appliesSuccess_whenNoTransactionKeyAndPgListHasSuccess() {
             // arrange
@@ -93,10 +93,10 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment).applyPgResult(transactionKey, PaymentStatus.SUCCESS, "정상 승인되었습니다.");
+            verify(paymentApp).applyPgResponse(orderId, transactionKey, "SUCCESS", "정상 승인되었습니다.");
         }
 
-        @DisplayName("transactionKey 가 없고 PG 목록이 전부 FAILED 이면, applyPgResult 가 FAILED 로 반영된다.")
+        @DisplayName("transactionKey 가 없고 PG 목록이 전부 FAILED 이면, applyPgResponse 가 FAILED 로 반영된다.")
         @Test
         void appliesFailed_whenNoTransactionKeyAndPgListAllFailed() {
             // arrange
@@ -118,10 +118,10 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment).applyPgResult(transactionKey, PaymentStatus.FAILED, "한도초과입니다.");
+            verify(paymentApp).applyPgResponse(orderId, transactionKey, "FAILED", "한도초과입니다.");
         }
 
-        @DisplayName("transactionKey 가 없고 PG 목록이 PENDING 만 있으면, applyPgResult 가 호출되지 않는다.")
+        @DisplayName("transactionKey 가 없고 PG 목록이 PENDING 만 있으면, applyPgResponse 가 호출되지 않는다.")
         @Test
         void skips_whenNoTransactionKeyAndPgListAllPending() {
             // arrange
@@ -142,10 +142,10 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment, never()).applyPgResult(any(), any(), any());
+            verify(paymentApp, never()).applyPgResponse(any(), any(), any(), any());
         }
 
-        @DisplayName("transactionKey 가 없고 PG 에 내역이 없으면 (404), applyPgResult 가 FAILED 로 반영된다.")
+        @DisplayName("transactionKey 가 없고 PG 에 내역이 없으면 (404), applyPgResponse 가 FAILED 로 반영된다.")
         @Test
         void appliesFailed_whenNoTransactionKeyAndPgReturns404() {
             // arrange
@@ -161,7 +161,7 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment).applyPgResult(null, PaymentStatus.FAILED, "PG 내역 없음");
+            verify(paymentApp).applyPgResponse(orderId, null, "FAILED", "PG 내역 없음");
         }
 
         @DisplayName("특정 Payment 처리 중 예외가 발생해도, 나머지 Payment 는 계속 처리된다.")
@@ -191,7 +191,7 @@ class PaymentReconciliationAppTest {
             reconciliationApp.reconcile(ZonedDateTime.now().minusMinutes(10));
 
             // assert
-            verify(payment2).applyPgResult(transactionKey2, PaymentStatus.SUCCESS, "정상 승인되었습니다.");
+            verify(paymentApp).applyPgResponse(orderId2, transactionKey2, "SUCCESS", "정상 승인되었습니다.");
         }
     }
 }
