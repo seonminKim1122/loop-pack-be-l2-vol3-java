@@ -61,6 +61,11 @@ public class PaymentReconciliationApp {
 
         List<PgPaymentDto.TransactionResponse> transactions = listResponse.get().transactions();
 
+        if (transactions.isEmpty()) {
+            payment.applyPgResult(null, PaymentStatus.FAILED, "PG 내역 없음");
+            return;
+        }
+
         Optional<PgPaymentDto.TransactionResponse> success = transactions.stream()
                 .filter(t -> t.status() == PgPaymentDto.TransactionStatus.SUCCESS)
                 .findFirst();
