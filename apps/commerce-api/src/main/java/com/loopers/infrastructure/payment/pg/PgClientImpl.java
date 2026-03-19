@@ -73,7 +73,11 @@ public class PgClientImpl implements PgClient {
         return new PgPaymentDto.TransactionResponse(null, PgPaymentDto.TransactionStatus.FAILED, null);
     }
 
-    @CircuitBreaker(name = "pg")
+    private Optional<PgPaymentDto.TransactionResponse> getTransactionFallback(String transactionKey, Exception e) {
+        return Optional.empty();
+    }
+
+    @CircuitBreaker(name = "pg", fallbackMethod = "getTransactionFallback")
     @Override
     public Optional<PgPaymentDto.TransactionResponse> getTransaction(String transactionKey) {
         HttpEntity<Void> entity = new HttpEntity<>(authHeaders());
