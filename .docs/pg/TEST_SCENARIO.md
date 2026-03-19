@@ -46,7 +46,7 @@ PG-Simulator로 재현하기 어려운 **극단적인 응답 지연**만 WireMoc
 
 | 파일 | 설명 | 검증 포인트 |
 |------|------|------------|
-| `03_scenario_delay.json` | timeout 설정값을 초과하는 긴 지연 | timeout 설정 동작 확인, 스레드 점유 여부 |
+| `scenario_delay.json` | timeout 설정값을 초과하는 긴 지연 | timeout 설정 동작 확인, 스레드 점유 여부 |
 
 > WireMock 실행: `docker/wiremock/run.sh start` / 시나리오 전환: `run.sh load <mapping-file>`
 
@@ -92,16 +92,6 @@ timeout 없이 긴 지연 응답을 받을 경우 Tomcat worker thread가 점유
 |------|------|
 | PENDING 상태 결제 수 (DB 직접 조회) | 외부 API 장애 중 누적 규모 |
 | Reconciliation 처리 성공/실패 수 | 복구 로직 동작 여부 |
-
-### 5. JVM 리소스
-
-스레드 고갈과 함께 힙/GC도 함께 확인한다.
-
-| 지표 | 의미 |
-|------|------|
-| `jvm.threads.live` | 전체 살아있는 스레드 수 |
-| `jvm.memory.used` | 힙 사용량 (스레드 누적 시 증가) |
-| `jvm.gc.pause` | GC 빈도 및 시간 |
 
 ---
 
