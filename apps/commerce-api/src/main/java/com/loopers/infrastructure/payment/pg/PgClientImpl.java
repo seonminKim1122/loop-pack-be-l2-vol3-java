@@ -4,6 +4,8 @@ import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -13,8 +15,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.SocketTimeoutException;
 import java.util.Optional;
 
 @Component
@@ -36,6 +40,8 @@ public class PgClientImpl implements PgClient {
         this.merchantId = merchantId;
     }
 
+    @CircuitBreaker(name = "pg", fallbackMethod = "requestPaymentFallback")
+    @Retry(name = "pg")
     @Override
     public PgPaymentDto.TransactionResponse requestPayment(PgPaymentDto.PaymentRequest request) {
         HttpHeaders headers = new HttpHeaders();
@@ -51,12 +57,20 @@ public class PgClientImpl implements PgClient {
             );
             return response.getBody().data();
         } catch (HttpClientErrorException e) {
-            // 400: 요청 파라미터 자체가 잘못된 경우 - 재시도 불가
+            // 400: 재시도 불가 - CoreException 은 ignore-exceptions 로 설정
             throw new CoreException(ErrorType.BAD_REQUEST, "PG 결제 요청이 잘못되었습니다.");
-        } catch (HttpServerErrorException e) {
-            // 500: PG 서버 일시 장애 - TODO: 재시도 전략 추가 필요
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
+        } catch (ResourceAccessException e) {
+            if (e.getCause() instanceof SocketTimeoutException ste && ste.getMessage().contains("connect timed out")) {
+                throw e; // 연결 타임아웃: PG 미수신 확실 → Resilience4j 가 retry
+            }
+            // 읽기 타임아웃: PG 수신 가능성 있음 → 중복 결제 위험, 재시도 불가
+            throw new CoreException(ErrorType.BAD_GATEWAY, "PG 서버 응답 시간이 초과되었습니다.");
         }
+        // HttpServerErrorException(5xx) → Resilience4j 가 최대 3회 retry
+    }
+
+    private PgPaymentDto.TransactionResponse requestPaymentFallback(PgPaymentDto.PaymentRequest request, Exception e) {
+        return new PgPaymentDto.TransactionResponse(null, PgPaymentDto.TransactionStatus.FAILED, null);
     }
 
     @Override

@@ -29,6 +29,31 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1  # outer — CB(outer) → Retry(inner)
+    instances:
+      pg:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50        # 5회 중 50% 실패 시 open
+        wait-duration-in-open-state: 10s  # 10초 후 half-open
+        permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException  # read timeout(BAD_GATEWAY), 400(BAD_REQUEST) bypass
+  retry:
+    retryAspectOrder: 2  # inner
+    instances:
+      pg:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+
 ---
 spring:
   config:
