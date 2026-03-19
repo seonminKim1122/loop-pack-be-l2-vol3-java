@@ -33,9 +33,10 @@ public class PaymentApp {
             if (payment.status() == PaymentStatus.SUCCESS) {
                 throw new CoreException(ErrorType.CONFLICT, "이미 결제된 주문입니다.");
             }
-            if (payment.status() == PaymentStatus.FAILED) {
-                payment.reset(cardType, cardNo);
+            if (payment.status() == PaymentStatus.PENDING) {
+                throw new CoreException(ErrorType.CONFLICT, "이미 진행 중인 결제입니다.");
             }
+            payment.reset(cardType, cardNo);
             return PaymentInfo.from(payment);
         }
 
