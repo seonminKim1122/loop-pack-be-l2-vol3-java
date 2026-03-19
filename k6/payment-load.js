@@ -8,15 +8,16 @@ const BASE_URL = 'http://localhost:8080';
 // 환경 설정 (필요 시 변경)
 // -------------------------
 const PRODUCT_ID = 1;      // 미리 생성해둔 상품 ID
-const TUPLE_COUNT = 300;   // 총 준비할 (유저, 주문) tuple 수 (20 req/s × 15s)
+const TUPLE_COUNT = 600;   // 총 준비할 (유저, 주문) tuple 수 (20 req/s × 30s)
 
 export const options = {
+  setupTimeout: '300s',
   scenarios: {
     payment_load: {
       executor: 'constant-arrival-rate',
       rate: 20,          // 초당 요청 수
       timeUnit: '1s',
-      duration: '15s',
+      duration: '30s',
       preAllocatedVUs: 50,
       maxVUs: 300,       // 타임아웃 없음 + 10초 지연 시 최대 200 스레드 점유 대비
     },
@@ -28,7 +29,7 @@ export function setup() {
   const entries = []; // { loginId, password, orderId }
 
   for (let i = 0; i < TUPLE_COUNT; i++) {
-    const loginId = `k6-user-${i}`;
+    const loginId = `k6User${i}`;
     const password = 'Test1234!';
 
     // 1. 유저 생성
@@ -37,7 +38,7 @@ export function setup() {
       JSON.stringify({
         loginId: loginId,
         password: password,
-        name: `k6유저${i}`,
+        name: `유저`,
         birthDate: '1990-01-01',
         email: `k6user${i}@test.com`,
       }),
@@ -78,8 +79,8 @@ export default function (data) {
     `${BASE_URL}/api/v1/payments`,
     JSON.stringify({
       orderId: entry.orderId,
-      cardType: 'VISA',
-      cardNo: '1234567890123456',
+      cardType: 'SAMSUNG',
+      cardNo: '1234-5678-9012-3456',
     }),
     {
       headers: {
