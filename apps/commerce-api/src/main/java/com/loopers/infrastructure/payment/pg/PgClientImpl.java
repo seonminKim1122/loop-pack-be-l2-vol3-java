@@ -73,6 +73,7 @@ public class PgClientImpl implements PgClient {
         return new PgPaymentDto.TransactionResponse(null, PgPaymentDto.TransactionStatus.FAILED, null);
     }
 
+    @CircuitBreaker(name = "pg")
     @Override
     public Optional<PgPaymentDto.TransactionResponse> getTransaction(String transactionKey) {
         HttpEntity<Void> entity = new HttpEntity<>(authHeaders());
@@ -90,9 +91,12 @@ public class PgClientImpl implements PgClient {
             throw new CoreException(ErrorType.BAD_REQUEST, "PG 트랜잭션 조회 요청이 잘못되었습니다.");
         } catch (HttpServerErrorException e) {
             throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
+        } catch (ResourceAccessException e) {
+            throw new CoreException(ErrorType.BAD_GATEWAY, "PG 서버 응답 시간이 초과되었습니다.");
         }
     }
 
+    @CircuitBreaker(name = "pg")
     @Override
     public Optional<PgPaymentDto.TransactionListResponse> getTransactionsByOrderId(String orderId) {
         HttpEntity<Void> entity = new HttpEntity<>(authHeaders());
@@ -110,6 +114,8 @@ public class PgClientImpl implements PgClient {
             throw new CoreException(ErrorType.BAD_REQUEST, "PG 트랜잭션 목록 조회 요청이 잘못되었습니다.");
         } catch (HttpServerErrorException e) {
             throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 서버 오류가 발생했습니다.");
+        } catch (ResourceAccessException e) {
+            throw new CoreException(ErrorType.BAD_GATEWAY, "PG 서버 응답 시간이 초과되었습니다.");
         }
     }
 
