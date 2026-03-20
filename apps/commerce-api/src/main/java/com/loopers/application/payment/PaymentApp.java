@@ -60,6 +60,6 @@ public class PaymentApp {
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "찾을 수 없는 결제번호입니다."));
 
-        payment.applyPgResult(transactionKey, PaymentStatus.valueOf(status), reason);
+        payment.applyPgResult(transactionKey, PaymentStatus.from(status), reason);
     }
 }

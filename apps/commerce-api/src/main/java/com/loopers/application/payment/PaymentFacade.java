@@ -2,6 +2,11 @@ package com.loopers.application.payment;
 
 import com.loopers.application.payment.pg.PgClient;
 import com.loopers.application.payment.pg.PgPaymentDto;
+import com.loopers.application.payment.pg.exception.PgBadRequestException;
+import com.loopers.application.payment.pg.exception.PgCircuitOpenException;
+import com.loopers.application.payment.pg.exception.PgConnectTimeoutException;
+import com.loopers.application.payment.pg.exception.PgReadTimeoutException;
+import com.loopers.application.payment.pg.exception.PgServerException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -27,18 +32,17 @@ public class PaymentFacade {
         try {
             PgPaymentDto.TransactionResponse response = pgClient.requestPayment(request);
             paymentApp.applyPgResponse(paymentInfo.orderId(), response.transactionKey(), response.status().name(), response.reason());
-
-            if (response.status() == PgPaymentDto.TransactionStatus.FAILED) {
-                // retry 소진 후 fallback — PG 미처리 확정, 클라이언트에 알림
-                throw new CoreException(ErrorType.BAD_GATEWAY, "PG 서버 오류로 결제에 실패했습니다.");
-            }
-        } catch (CoreException e) {
-            // 읽기 타임아웃(BAD_GATEWAY): 결제 상태를 PENDING 유지, 중복 결제 방지
-            // 그 외(BAD_REQUEST 등): FAILED 저장
-            if (e.getErrorType() != ErrorType.BAD_GATEWAY) {
-                paymentApp.applyPgResponse(paymentInfo.orderId(), null, "FAILED", e.getCustomMessage());
-            }
-            throw e;
+        } catch (PgReadTimeoutException e) {
+            // 읽기 타임아웃: PG 수신 가능성 있음 → PENDING 유지, 중복 결제 방지
+            throw new CoreException(ErrorType.BAD_GATEWAY, e.getMessage());
+        } catch (PgBadRequestException e) {
+            // 잘못된 결제 요청 → 서버 측 버그 가능성, FAILED 저장
+            paymentApp.applyPgResponse(paymentInfo.orderId(), null, "FAILED", e.getMessage());
+            throw new CoreException(ErrorType.INTERNAL_ERROR, e.getMessage());
+        } catch (PgServerException | PgConnectTimeoutException | PgCircuitOpenException e) {
+            // PG 미처리 확정 → FAILED 저장
+            paymentApp.applyPgResponse(paymentInfo.orderId(), null, "FAILED", e.getMessage());
+            throw new CoreException(ErrorType.BAD_GATEWAY, e.getMessage());
         }
     }
 

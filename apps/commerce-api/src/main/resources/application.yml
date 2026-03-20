@@ -41,7 +41,9 @@ resilience4j:
         wait-duration-in-open-state: 10s  # 10초 후 half-open
         permitted-number-of-calls-in-half-open-state: 3
         ignore-exceptions:
-          - com.loopers.support.error.CoreException  # read timeout(BAD_GATEWAY), 400(BAD_REQUEST) bypass
+          - com.loopers.application.payment.pg.exception.PgReadTimeoutException   # PG 수신 가능성 있음 → 장애 통계 제외
+          - com.loopers.application.payment.pg.exception.PgBadRequestException    # 요청 오류 → 장애 통계 제외
+          - com.loopers.application.payment.pg.exception.PgCircuitOpenException   # CB 자체 발생 → 장애 통계 제외
   retry:
     retryAspectOrder: 2  # inner
     instances:
@@ -52,10 +54,11 @@ resilience4j:
         exponential-backoff-multiplier: 2
         exponential-max-wait-duration: 2s
         retry-exceptions:
-          - org.springframework.web.client.HttpServerErrorException
-          - org.springframework.web.client.ResourceAccessException
+          - com.loopers.application.payment.pg.exception.PgServerException        # PG 5xx → 재시도
+          - com.loopers.application.payment.pg.exception.PgConnectTimeoutException # 연결 타임아웃 → 재시도
         ignore-exceptions:
-          - com.loopers.support.error.CoreException
+          - com.loopers.application.payment.pg.exception.PgReadTimeoutException   # 읽기 타임아웃 → 중복 결제 방지, 재시도 불가
+          - com.loopers.application.payment.pg.exception.PgBadRequestException    # 요청 오류 → 재시도 불가
 
 ---
 spring:

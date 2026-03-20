@@ -221,23 +221,49 @@ class PaymentTest {
             assertThat(payment.status()).isEqualTo(PaymentStatus.SUCCESS);
         }
 
-        @DisplayName("FAILED 상태이면, 재시도로 결과를 덮어쓸 수 있다.")
+        @DisplayName("FAILED 상태에서 SUCCESS 가 오면, SUCCESS 로 전이된다.")
         @Test
-        void appliesPgResult_whenStatusIsFailed() {
+        void transitionsToSuccess_whenFailedAndSuccessArrives() {
             // arrange
             Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
             payment.applyPgResult("tx-key-001", PaymentStatus.FAILED, "잔액 부족");
 
             // act
-            payment.applyPgResult("tx-key-002", PaymentStatus.SUCCESS, null);
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
 
             // assert
             assertThat(payment.status()).isEqualTo(PaymentStatus.SUCCESS);
         }
 
-        @DisplayName("SUCCESS 상태이면, CoreException 이 발생한다.")
+        @DisplayName("FAILED 상태에서 FAILED 가 오면, 무시된다.")
         @Test
-        void throwsCoreException_whenStatusIsSuccess() {
+        void ignores_whenFailedAndFailedArrives() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.FAILED, "잔액 부족");
+
+            // act
+            payment.applyPgResult("tx-key-001", PaymentStatus.FAILED, "잔액 부족");
+
+            // assert
+            assertThat(payment.status()).isEqualTo(PaymentStatus.FAILED);
+        }
+
+        @DisplayName("SUCCESS 상태에서 동일한 transactionKey 로 SUCCESS 가 오면, 무시된다.")
+        @Test
+        void ignores_whenSuccessAndSameTransactionKeyArrives() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
+
+            // act & assert (예외 없이 통과)
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
+            assertThat(payment.status()).isEqualTo(PaymentStatus.SUCCESS);
+        }
+
+        @DisplayName("SUCCESS 상태에서 다른 transactionKey 로 SUCCESS 가 오면, 중복 결제 예외가 발생한다.")
+        @Test
+        void throwsCoreException_whenSuccessAndDifferentTransactionKeyArrives() {
             // arrange
             Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
             payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
@@ -248,7 +274,21 @@ class PaymentTest {
             );
 
             // assert
-            assertThat(result.getCustomMessage()).isEqualTo("이미 완료된 결제입니다.");
+            assertThat(result.getErrorType()).isEqualTo(com.loopers.support.error.ErrorType.CONFLICT);
+        }
+
+        @DisplayName("SUCCESS 상태에서 FAILED 가 오면, 무시된다.")
+        @Test
+        void ignores_whenSuccessAndFailedArrives() {
+            // arrange
+            Payment payment = Payment.of("20260318-ABCD12", 1L, "신한카드", "1234-5678-9012-3456", 50000L);
+            payment.applyPgResult("tx-key-001", PaymentStatus.SUCCESS, null);
+
+            // act
+            payment.applyPgResult("tx-key-001", PaymentStatus.FAILED, "오류");
+
+            // assert
+            assertThat(payment.status()).isEqualTo(PaymentStatus.SUCCESS);
         }
     }
 }

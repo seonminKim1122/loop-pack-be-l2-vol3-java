@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import java.util.Objects;
 
 @Table(name = "payment")
 @Entity
@@ -104,8 +105,19 @@ public class Payment extends BaseEntity {
 
     public void applyPgResult(String transactionKey, PaymentStatus status, String reason) {
         if (this.status == PaymentStatus.SUCCESS) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이미 완료된 결제입니다.");
+            if (status == PaymentStatus.FAILED) {
+                return; // 이미 성공한 결제에 실패 콜백 → 무시
+            }
+            if (Objects.equals(this.transactionKey, transactionKey)) {
+                return; // 동일 콜백 재발송 → 무시
+            }
+            throw new CoreException(ErrorType.CONFLICT, "중복 결제가 감지되었습니다.");
         }
+
+        if (this.status == PaymentStatus.FAILED && status == PaymentStatus.FAILED) {
+            return; // 중복 실패 콜백 → 무시
+        }
+
         this.transactionKey = transactionKey;
         this.status = status;
         this.reason = reason;
