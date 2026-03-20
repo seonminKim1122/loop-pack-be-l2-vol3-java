@@ -33,8 +33,7 @@ public class PaymentFacade {
             PgPaymentDto.TransactionResponse response = pgClient.requestPayment(request);
             paymentApp.applyPgResponse(paymentInfo.orderId(), response.transactionKey(), response.status().name(), response.reason());
         } catch (PgReadTimeoutException e) {
-            // 읽기 타임아웃: PG 수신 가능성 있음 → PENDING 유지, 중복 결제 방지
-            throw new CoreException(ErrorType.BAD_GATEWAY, e.getMessage());
+            // 읽기 타임아웃: PG 수신 가능성 있음 → PENDING 유지, 콜백/Reconciliation으로 복구
         } catch (PgBadRequestException e) {
             // 잘못된 결제 요청 → 서버 측 버그 가능성, FAILED 저장
             paymentApp.applyPgResponse(paymentInfo.orderId(), null, "FAILED", e.getMessage());

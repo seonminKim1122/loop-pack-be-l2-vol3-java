@@ -122,9 +122,9 @@ class PaymentFacadeTest {
             verify(paymentApp).applyPgResponse(eq(orderId), isNull(), eq("FAILED"), any());
         }
 
-        @DisplayName("PG 읽기 타임아웃 발생 시, Payment 를 PENDING 유지하고 예외를 재발생시킨다.")
+        @DisplayName("PG 읽기 타임아웃 발생 시, Payment 를 PENDING 유지하고 정상 응답한다.")
         @Test
-        void keepsPendingAndRethrows_whenPgReadTimeout() {
+        void keepsPending_whenPgReadTimeout() {
             // arrange
             String orderId = "20260318-ABCD12";
             PaymentInfo paymentInfo = new PaymentInfo(orderId, "신한카드", "1234-5678-9012-3456", 50000L, PaymentStatus.PENDING, null, null, ZonedDateTime.now());
@@ -133,12 +133,9 @@ class PaymentFacadeTest {
             when(pgClient.requestPayment(any())).thenThrow(new PgReadTimeoutException("PG 서버 응답 시간이 초과되었습니다."));
 
             // act
-            CoreException result = assertThrows(CoreException.class, () ->
-                paymentFacade.processPayment(orderId, "신한카드", "1234-5678-9012-3456", 1L)
-            );
+            paymentFacade.processPayment(orderId, "신한카드", "1234-5678-9012-3456", 1L);
 
             // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_GATEWAY);
             verify(paymentApp, never()).applyPgResponse(eq(orderId), isNull(), eq("FAILED"), any());
         }
 
