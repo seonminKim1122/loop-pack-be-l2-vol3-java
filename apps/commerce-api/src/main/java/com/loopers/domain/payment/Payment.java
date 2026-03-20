@@ -33,7 +33,7 @@ public class Payment extends BaseEntity {
     private PaymentStatus status;
 
     @Column(name = "transaction_key")
-    public String transactionKey;
+    private String transactionKey;
 
     @Column(name = "reason")
     private String reason;
